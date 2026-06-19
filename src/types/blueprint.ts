@@ -7,7 +7,7 @@ export type FontEnum =
   | 'Almendra'
   | 'Berkshire Swash'
   | 'Uncial Antiqua'
-  | 'MedievalSharp'
+  | 'Cinzel Decorative'
   | 'Eater';
 
 export type WeightEnum = '300' | '400' | '500' | '600' | '700';

@@ -70,7 +70,7 @@ export interface StoreState {
   setPrompt: (prompt: string) => void;
   addNode: (blueprint: Blueprint, label: string, parentId?: string | null) => TimelineNode;
   setActiveNode: (id: string) => void;
-  patchBlueprint: (patch: DeepPartial<Blueprint>) => void;
+  patchBlueprint: (patch: DeepPartial<Blueprint>, label?: string) => void;
   setIsGenerating: (val: boolean) => void;
   resetToFixture: () => void;
 }
@@ -138,12 +138,12 @@ export const useStore = create<StoreState>((set, get) => ({
 
   setActiveNode: (id) => set({ activeNodeId: id }),
 
-  patchBlueprint: (patch) => {
+  patchBlueprint: (patch, label = 'Manual edit') => {
     const state = get();
     const current = state.activeBlueprint();
     if (!current) return;
     const patched = deepMerge(current, patch);
-    state.addNode(patched, 'Manual edit');
+    state.addNode(patched, label);
   },
 
   setIsGenerating: (val) => set({ isGenerating: val }),
