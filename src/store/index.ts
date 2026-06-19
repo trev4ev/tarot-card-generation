@@ -71,6 +71,7 @@ export interface StoreState {
   addNode: (blueprint: Blueprint, label: string, parentId?: string | null) => TimelineNode;
   setActiveNode: (id: string) => void;
   patchBlueprint: (patch: DeepPartial<Blueprint>, label?: string) => void;
+  updateLiveBlueprint: (patch: DeepPartial<Blueprint>) => void;
   setIsGenerating: (val: boolean) => void;
   resetToFixture: () => void;
 }
@@ -144,6 +145,17 @@ export const useStore = create<StoreState>((set, get) => ({
     if (!current) return;
     const patched = deepMerge(current, patch);
     state.addNode(patched, label);
+  },
+
+  updateLiveBlueprint: (patch) => {
+    set((state) => {
+      const idx = state.nodes.findIndex((n) => n.id === state.activeNodeId);
+      if (idx === -1) return state;
+      const updated = deepMerge(state.nodes[idx].blueprint, patch);
+      const nodes = [...state.nodes];
+      nodes[idx] = { ...nodes[idx], blueprint: updated };
+      return { nodes };
+    });
   },
 
   setIsGenerating: (val) => set({ isGenerating: val }),

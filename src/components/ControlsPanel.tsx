@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useStore } from '../store';
 import { aiClient } from '../ai';
 import type {
@@ -93,16 +93,25 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 
 function Slider({
   label, value, min, max, step = 1,
-  onChange,
+  onChange, onLiveChange,
 }: {
   label: string; value: number; min: number; max: number;
-  step?: number; onChange: (v: number) => void;
+  step?: number; onChange: (v: number) => void; onLiveChange?: (v: number) => void;
 }) {
+  const [local, setLocal] = useState(value);
+  useEffect(() => { setLocal(value); }, [value]);
+
   return (
-    <Row label={`${label}: ${value}`}>
+    <Row label={`${label}: ${local}`}>
       <input
-        type="range" min={min} max={max} step={step} value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
+        type="range" min={min} max={max} step={step} value={local}
+        onChange={(e) => {
+          const v = Number(e.target.value);
+          setLocal(v);
+          onLiveChange?.(v);
+        }}
+        onMouseUp={(e) => onChange(Number((e.target as HTMLInputElement).value))}
+        onTouchEnd={(e) => onChange(Number((e.currentTarget as HTMLInputElement).value))}
       />
     </Row>
   );
@@ -151,6 +160,7 @@ export function ControlsPanel() {
   const setIsGenerating = useStore((s) => s.setIsGenerating);
   const addNode = useStore((s) => s.addNode);
   const patchBlueprint = useStore((s) => s.patchBlueprint);
+  const updateLiveBlueprint = useStore((s) => s.updateLiveBlueprint);
   const resetToFixture = useStore((s) => s.resetToFixture);
   const bp = useStore((s) => s.activeBlueprint());
   const [error, setError] = useState<string | null>(null);
@@ -191,6 +201,19 @@ export function ControlsPanel() {
   }
   function patchFooter(key: keyof Blueprint['footer'], value: Blueprint['footer'][typeof key]) {
     patchBlueprint({ footer: { [key]: value } as Partial<Blueprint['footer']> }, `Footer: ${key}`);
+  }
+
+  function liveFrame(key: keyof Blueprint['frame'], value: Blueprint['frame'][typeof key]) {
+    updateLiveBlueprint({ frame: { [key]: value } as Partial<Blueprint['frame']> });
+  }
+  function liveTypo(key: keyof Blueprint['typography'], value: Blueprint['typography'][typeof key]) {
+    updateLiveBlueprint({ typography: { [key]: value } as Partial<Blueprint['typography']> });
+  }
+  function liveBg(key: keyof Blueprint['background'], value: Blueprint['background'][typeof key]) {
+    updateLiveBlueprint({ background: { [key]: value } as Partial<Blueprint['background']> });
+  }
+  function liveFooter(key: keyof Blueprint['footer'], value: Blueprint['footer'][typeof key]) {
+    updateLiveBlueprint({ footer: { [key]: value } as Partial<Blueprint['footer']> });
   }
 
   return (
@@ -263,6 +286,7 @@ export function ControlsPanel() {
             <Slider
               label="Mood"
               value={bp.mood} min={0} max={100}
+              onLiveChange={(v) => updateLiveBlueprint({ mood: v })}
               onChange={(v) => patch('mood', v, `Mood → ${v}`)}
             />
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#555' }}>
@@ -319,12 +343,14 @@ export function ControlsPanel() {
               label="Thickness"
               value={bp.frame.thickness}
               min={1} max={20}
+              onLiveChange={(v) => liveFrame('thickness', v)}
               onChange={(v) => patchFrame('thickness', v)}
             />
             <Slider
               label="Inner margin"
               value={bp.frame.innerMargin}
               min={4} max={28}
+              onLiveChange={(v) => liveFrame('innerMargin', v)}
               onChange={(v) => patchFrame('innerMargin', v)}
             />
             <ColorRow
@@ -346,6 +372,7 @@ export function ControlsPanel() {
               label="Title size"
               value={bp.typography.titleSize}
               min={14} max={42}
+              onLiveChange={(v) => liveTypo('titleSize', v)}
               onChange={(v) => patchTypo('titleSize', v)}
             />
             <Sel
@@ -375,6 +402,7 @@ export function ControlsPanel() {
               label="Letter spacing"
               value={bp.typography.letterSpacing}
               min={0} max={8} step={0.5}
+              onLiveChange={(v) => liveTypo('letterSpacing', v)}
               onChange={(v) => patchTypo('letterSpacing', v)}
             />
           </Section>
@@ -402,6 +430,7 @@ export function ControlsPanel() {
               label="Pattern opacity"
               value={Math.round(bp.background.patternOpacity * 100)}
               min={0} max={100}
+              onLiveChange={(v) => liveBg('patternOpacity', v / 100)}
               onChange={(v) => patchBg('patternOpacity', v / 100)}
             />
           </Section>
@@ -440,6 +469,7 @@ export function ControlsPanel() {
                   label="Footer size"
                   value={bp.footer.size}
                   min={8} max={18}
+                  onLiveChange={(v) => liveFooter('size', v)}
                   onChange={(v) => patchFooter('size', v)}
                 />
               </>
