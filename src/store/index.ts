@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Blueprint, TimelineNode, Branch } from '../types/blueprint';
+import type { Blueprint, TimelineNode, Branch, ElementRef, SymbolDef } from '../types/blueprint';
 import { theFool } from '../fixtures/cards';
 
 // ── DeepPartial ──────────────────────────────────────────────────────────────
@@ -42,6 +42,10 @@ export interface StoreState {
   activeBranch: () => Branch | null;
   activeBlueprint: () => Blueprint | null;
 
+  // Selection
+  selectedElement: ElementRef | null;
+  setSelectedElement: (el: ElementRef | null) => void;
+
   // Actions
   setPrompt: (prompt: string) => void;
   addNode: (blueprint: Blueprint, label: string) => TimelineNode;
@@ -54,6 +58,9 @@ export interface StoreState {
   toggleBranchCollapse: (branchId: string) => void;
   setIsGenerating: (val: boolean) => void;
   resetToFixture: () => void;
+  updateSymbol: (symbolId: string, patch: Partial<SymbolDef>) => void;
+  addSymbol: (sym: SymbolDef) => void;
+  removeSymbol: (symbolId: string) => void;
 }
 
 // ── Initial state factory ─────────────────────────────────────────────────────
@@ -84,6 +91,7 @@ export const useStore = create<StoreState>((set, get) => ({
   activeBranchId: initialBranch.id,
   isGenerating: false,
   prompt: '',
+  selectedElement: null,
 
   activeBranch: () => {
     const { branches, activeBranchId } = get();
@@ -95,6 +103,8 @@ export const useStore = create<StoreState>((set, get) => ({
     if (!branch) return null;
     return branch.nodes.find((n) => n.id === branch.activeNodeId)?.blueprint ?? null;
   },
+
+  setSelectedElement: (el) => set({ selectedElement: el }),
 
   setPrompt: (prompt) => set({ prompt }),
 
@@ -138,7 +148,7 @@ export const useStore = create<StoreState>((set, get) => ({
     });
   },
 
-  setActiveBranch: (branchId) => set({ activeBranchId: branchId }),
+  setActiveBranch: (branchId) => set({ activeBranchId: branchId, selectedElement: null }),
 
   patchBlueprint: (patch, label = 'Manual edit') => {
     const state = get();
@@ -215,6 +225,31 @@ export const useStore = create<StoreState>((set, get) => ({
 
   resetToFixture: () => {
     const branch = makeInitialBranch();
-    set({ branches: [branch], activeBranchId: branch.id });
+    set({ branches: [branch], activeBranchId: branch.id, selectedElement: null });
+  },
+
+  updateSymbol: (symbolId, patch) => {
+    const state = get();
+    const current = state.activeBlueprint();
+    if (!current) return;
+    const symbols = current.symbols.map((s) =>
+      s.id === symbolId ? { ...s, ...patch } : s
+    );
+    state.patchBlueprint({ symbols }, `Symbol: ${Object.keys(patch).join(', ')}`);
+  },
+
+  addSymbol: (sym) => {
+    const state = get();
+    const current = state.activeBlueprint();
+    if (!current) return;
+    state.patchBlueprint({ symbols: [...current.symbols, sym] }, 'Add symbol');
+  },
+
+  removeSymbol: (symbolId) => {
+    const state = get();
+    const current = state.activeBlueprint();
+    if (!current) return;
+    const symbols = current.symbols.filter((s) => s.id !== symbolId);
+    state.patchBlueprint({ symbols }, 'Remove symbol');
   },
 }));

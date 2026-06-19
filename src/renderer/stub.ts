@@ -485,8 +485,46 @@ export const rendererStub: RendererAPI = {
     void document.fonts.ready.then(() => { layer.batchDraw(); });
   },
 
-  hitTest(_x: number, _y: number): ElementRef | null {
-    return null;
+  hitTest(x: number, y: number, blueprint: Blueprint): ElementRef | null {
+    const { symbols, frame, footer, layout, typography } = blueprint;
+    const innerLeft = frame.thickness + frame.innerMargin;
+
+    // Symbols — reverse order so topmost rendered wins
+    for (let i = symbols.length - 1; i >= 0; i--) {
+      const sym = symbols[i];
+      const cx = sym.x * CARD_W;
+      const cy = sym.y * CARD_H;
+      const r = 28 * sym.scale * 1.5;
+      if (Math.sqrt((x - cx) ** 2 + (y - cy) ** 2) <= r) {
+        return { type: 'symbol', symbolId: sym.id };
+      }
+    }
+
+    // Title area
+    const lineH = typography.titleSize + 6;
+    const titleY = layout.titlePosition === 'top'
+      ? frame.thickness + frame.innerMargin
+      : CARD_H - frame.thickness - frame.innerMargin - lineH - (footer.visible ? footer.size + 10 : 0);
+    const titleH = typography.titleSize + typography.bodySize + 14;
+    if (x >= innerLeft && x <= CARD_W - innerLeft && y >= titleY - 4 && y <= titleY + titleH) {
+      return { type: 'title' };
+    }
+
+    // Footer area
+    if (footer.visible) {
+      const footerY = CARD_H - frame.thickness - frame.innerMargin - footer.size - 3;
+      if (x >= innerLeft && x <= CARD_W - innerLeft && y >= footerY - 4 && y <= footerY + footer.size + 8) {
+        return { type: 'footer' };
+      }
+    }
+
+    // Frame border region
+    const thick = frame.thickness + frame.innerMargin * 0.5;
+    if (x <= thick || x >= CARD_W - thick || y <= thick || y >= CARD_H - thick) {
+      return { type: 'frame' };
+    }
+
+    return { type: 'background' };
   },
 
   async renderThumbnail(blueprint: Blueprint): Promise<string> {

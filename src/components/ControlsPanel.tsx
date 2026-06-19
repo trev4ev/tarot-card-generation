@@ -8,6 +8,7 @@ import type {
   CornerMotifEnum,
   TextureEnum,
   PatternEnum,
+  SymbolDef,
 } from '../types/blueprint';
 
 // ── Option lists ──────────────────────────────────────────────────────────────
@@ -162,8 +163,15 @@ export function ControlsPanel() {
   const patchBlueprint = useStore((s) => s.patchBlueprint);
   const updateLiveBlueprint = useStore((s) => s.updateLiveBlueprint);
   const resetToFixture = useStore((s) => s.resetToFixture);
+  const selectedElement = useStore((s) => s.selectedElement);
+  const setSelectedElement = useStore((s) => s.setSelectedElement);
+  const updateSymbol = useStore((s) => s.updateSymbol);
+  const addSymbol = useStore((s) => s.addSymbol);
+  const removeSymbol = useStore((s) => s.removeSymbol);
   const bp = useStore((s) => s.activeBlueprint());
   const [error, setError] = useState<string | null>(null);
+  const [symDesc, setSymDesc] = useState('');
+  const [addingSymbol, setAddingSymbol] = useState(false);
 
   async function handleGenerate() {
     if (!prompt.trim() || isGenerating) return;
@@ -216,6 +224,40 @@ export function ControlsPanel() {
     updateLiveBlueprint({ footer: { [key]: value } as Partial<Blueprint['footer']> });
   }
 
+  function liveSymbol(symbolId: string, patch: Partial<SymbolDef>) {
+    if (!bp) return;
+    const symbols = bp.symbols.map((s) => s.id === symbolId ? { ...s, ...patch } : s);
+    updateLiveBlueprint({ symbols });
+  }
+
+  async function handleAddSymbol() {
+    if (!symDesc.trim() || !bp || addingSymbol) return;
+    setAddingSymbol(true);
+    try {
+      const sym = await aiClient.generateSymbol(symDesc, bp);
+      addSymbol(sym);
+      setSelectedElement({ type: 'symbol', symbolId: sym.id });
+      setSymDesc('');
+    } catch {
+      // ignore
+    } finally {
+      setAddingSymbol(false);
+    }
+  }
+
+  // Derive selected symbol for controls
+  const selectedSym =
+    selectedElement?.type === 'symbol' && bp
+      ? bp.symbols.find((s) => s.id === selectedElement.symbolId) ?? null
+      : null;
+
+  const selLabel =
+    selectedElement?.type === 'title' ? 'Title'
+    : selectedElement?.type === 'footer' ? 'Footer'
+    : selectedElement?.type === 'frame' ? 'Frame'
+    : selectedElement?.type === 'background' ? 'Background'
+    : null;
+
   return (
     <aside
       style={{
@@ -243,6 +285,131 @@ export function ControlsPanel() {
       >
         Controls
       </div>
+
+      {/* Selection */}
+      {selectedElement && (
+        <div style={{ background: '#1a1a3e', borderBottom: '1px solid #2a2a4e', padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '11px', fontWeight: 600, color: '#c4b5fd', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              {selectedSym ? `Symbol: ${selectedSym.kind}` : `Selected: ${selLabel}`}
+            </span>
+            <button
+              onClick={() => setSelectedElement(null)}
+              title="Deselect"
+              style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: '14px', padding: '0 2px', lineHeight: 1 }}
+            >
+              ✕
+            </button>
+          </div>
+
+          {selectedSym && (
+            <>
+              <Slider
+                label="X position"
+                value={Math.round(selectedSym.x * 100)}
+                min={0} max={100}
+                onLiveChange={(v) => liveSymbol(selectedSym.id, { x: v / 100 })}
+                onChange={(v) => updateSymbol(selectedSym.id, { x: v / 100 })}
+              />
+              <Slider
+                label="Y position"
+                value={Math.round(selectedSym.y * 100)}
+                min={0} max={100}
+                onLiveChange={(v) => liveSymbol(selectedSym.id, { y: v / 100 })}
+                onChange={(v) => updateSymbol(selectedSym.id, { y: v / 100 })}
+              />
+              <Slider
+                label="Scale"
+                value={Math.round(selectedSym.scale * 100)}
+                min={10} max={300}
+                onLiveChange={(v) => liveSymbol(selectedSym.id, { scale: v / 100 })}
+                onChange={(v) => updateSymbol(selectedSym.id, { scale: v / 100 })}
+              />
+              <Slider
+                label="Opacity"
+                value={Math.round(selectedSym.opacity * 100)}
+                min={0} max={100}
+                onLiveChange={(v) => liveSymbol(selectedSym.id, { opacity: v / 100 })}
+                onChange={(v) => updateSymbol(selectedSym.id, { opacity: v / 100 })}
+              />
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', fontSize: '11px', color: '#aaa' }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedSym.flipX}
+                    onChange={(e) => updateSymbol(selectedSym.id, { flipX: e.target.checked })}
+                    style={{ width: 13, height: 13 }}
+                  />
+                  Flip X
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', fontSize: '11px', color: '#aaa' }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedSym.flipY}
+                    onChange={(e) => updateSymbol(selectedSym.id, { flipY: e.target.checked })}
+                    style={{ width: 13, height: 13 }}
+                  />
+                  Flip Y
+                </label>
+              </div>
+              <button
+                onClick={() => {
+                  removeSymbol(selectedSym.id);
+                  setSelectedElement(null);
+                }}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid #5a2a2a',
+                  color: '#f87171',
+                  padding: '4px 10px',
+                  borderRadius: '4px',
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                  alignSelf: 'flex-start',
+                }}
+              >
+                Delete Symbol
+              </button>
+            </>
+          )}
+
+          {selLabel && (
+            <span style={{ fontSize: '11px', color: '#666' }}>
+              Edit in the {selLabel} section below
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Add Symbol */}
+      {bp && (
+        <div style={{ background: '#16213e', borderBottom: '1px solid #2a2a4e', padding: '8px 16px', display: 'flex', gap: '6px', alignItems: 'center' }}>
+          <input
+            type="text"
+            value={symDesc}
+            onChange={(e) => setSymDesc(e.target.value)}
+            placeholder="Add symbol…"
+            onKeyDown={(e) => { if (e.key === 'Enter') void handleAddSymbol(); }}
+            style={{ flex: 1, fontSize: '12px', padding: '4px 7px' }}
+          />
+          <button
+            onClick={() => void handleAddSymbol()}
+            disabled={!symDesc.trim() || addingSymbol}
+            style={{
+              background: addingSymbol || !symDesc.trim() ? '#3a3458' : '#6d5fb5',
+              color: '#fff',
+              border: 'none',
+              padding: '4px 10px',
+              borderRadius: '4px',
+              fontSize: '12px',
+              cursor: addingSymbol || !symDesc.trim() ? 'not-allowed' : 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {addingSymbol ? '…' : '+ Add'}
+          </button>
+        </div>
+      )}
 
       {/* AI Generation */}
       <Section title="AI Generation">
