@@ -507,23 +507,25 @@ export const rendererStub: RendererAPI = {
       drawCornerMotif(layer, frame.cornerMotif, cx, cy, frameColor, bg.baseColor);
     }
 
-    // 6 — Illustration area
+    // 6 — Illustration area (placeholder shown only when no illustration image is set)
     layer.add(new Konva.Rect({
       x: iaX, y: iaY, width: iaW, height: iaH,
-      fill: hexToRgba(palette.primaryAccent, 0.1),
+      fill: hexToRgba(palette.primaryAccent, 0.08),
       id: 'illustration-bg',
     }));
-    layer.add(new Konva.Rect({
-      x: iaX, y: iaY, width: iaW, height: iaH,
-      stroke: hexToRgba(palette.border, 0.35), strokeWidth: 1,
-      id: 'illustration-area',
-    }));
-    layer.add(new Konva.Text({
-      x: iaX, y: iaY + iaH / 2 - 9, width: iaW,
-      text: '✦  illustration  ✦',
-      fontSize: 12, fill: palette.text, opacity: 0.2,
-      align: 'center', listening: false,
-    }));
+    if (!blueprint.illustration) {
+      layer.add(new Konva.Rect({
+        x: iaX, y: iaY, width: iaW, height: iaH,
+        stroke: hexToRgba(palette.border, 0.35), strokeWidth: 1,
+        id: 'illustration-area',
+      }));
+      layer.add(new Konva.Text({
+        x: iaX, y: iaY + iaH / 2 - 9, width: iaW,
+        text: '✦  illustration  ✦',
+        fontSize: 12, fill: palette.text, opacity: 0.2,
+        align: 'center', listening: false,
+      }));
+    }
 
     // 7 — Symbols
     for (const sym of symbols) {

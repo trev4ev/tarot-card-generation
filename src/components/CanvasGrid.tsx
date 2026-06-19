@@ -204,12 +204,15 @@ function BranchCard({ branch, blueprint, isActive, selectedElement, onActivate, 
       <div
         ref={innerRef}
         style={{
+          position: 'relative',
           boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
           borderRadius: '8px',
           overflow: 'hidden',
           transform: `scale(${scale}) translateZ(0)`,
           transformOrigin: 'center center',
           flexShrink: 0,
+          width: CARD_W,
+          height: CARD_H,
         }}
       >
         <Stage
@@ -217,6 +220,26 @@ function BranchCard({ branch, blueprint, isActive, selectedElement, onActivate, 
           height={CARD_H}
           ref={(node) => { stageRef.current = node; }}
         />
+        {blueprint.illustration && (() => {
+          const ia = blueprint.layout.illustrationArea;
+          return (
+            <img
+              key={blueprint.illustration}
+              src={`/illustrations/${blueprint.illustration}.png`}
+              alt={blueprint.illustration}
+              style={{
+                position: 'absolute',
+                left: `${ia.x * 100}%`,
+                top: `${ia.y * 100}%`,
+                width: `${ia.width * 100}%`,
+                height: `${ia.height * 100}%`,
+                objectFit: 'cover',
+                pointerEvents: 'none',
+              }}
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+            />
+          );
+        })()}
       </div>
 
       {/* Branch label overlay */}

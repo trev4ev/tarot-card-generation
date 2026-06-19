@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '../store';
 import { aiClient } from '../ai';
+import { ILLUSTRATIONS } from '../illustrations/catalog';
 import type {
   Blueprint,
   FontEnum,
@@ -453,6 +454,27 @@ export function ControlsPanel() {
 
       {bp && (
         <>
+          {/* Illustration */}
+          <Section title="Illustration">
+            <Row label="Choose illustration">
+              <select
+                value={bp.illustration ?? ''}
+                onChange={(e) => patchBlueprint({ illustration: e.target.value || null }, 'Illustration change')}
+                style={{ width: '100%' }}
+              >
+                <option value="">— none —</option>
+                {ILLUSTRATIONS.map((ill) => (
+                  <option key={ill.id} value={ill.id}>{ill.name}</option>
+                ))}
+              </select>
+            </Row>
+            {bp.illustration && (
+              <div style={{ fontSize: '10px', color: '#666', lineHeight: 1.5 }}>
+                {ILLUSTRATIONS.find((i) => i.id === bp.illustration)?.description}
+              </div>
+            )}
+          </Section>
+
           {/* Mood */}
           <Section title="Mood">
             <Slider

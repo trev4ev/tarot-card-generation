@@ -21,10 +21,41 @@ function pickByKeyword(prompt: string): Blueprint {
   return { ...random, id: crypto.randomUUID() };
 }
 
+const KEYWORD_ILLUSTRATION: Array<[RegExp, string]> = [
+  [/hermit|sage|lantern|solitude|wisdom/i, 'the-hermit'],
+  [/moon|dream|night|wolf|illusion/i, 'the-moon'],
+  [/sun|joy|child|radiant|warmth/i, 'the-sun'],
+  [/star|hope|renewal|serenity/i, 'the-star'],
+  [/tower|chaos|lightning|upheaval/i, 'the-tower'],
+  [/death|transform|ending|rebirth/i, 'death'],
+  [/devil|shadow|bondage|temptation/i, 'the-devil'],
+  [/fool|adventure|journey|innocen/i, 'the-fool'],
+  [/magician|power|will|manifest/i, 'the-magician'],
+  [/empress|nature|abundance|fertile/i, 'the-empress'],
+  [/emperor|authority|leader|order/i, 'the-emperor'],
+  [/love|union|couple|heart/i, 'the-lovers'],
+  [/justice|law|balance|truth/i, 'justice'],
+  [/wheel|fate|fortune|karma|cycle/i, 'wheel-of-fortune'],
+  [/strength|courage|lion|inner/i, 'strength'],
+  [/temperance|moderat|flow|angel/i, 'temperance'],
+  [/high priestess|mystery|intuition|veil/i, 'the-high-priestess'],
+  [/hierophant|tradition|ritual|teach/i, 'the-hierophant'],
+  [/chariot|victory|conquest|warrior/i, 'the-chariot'],
+  [/hang|sacrifice|surrender|perspective/i, 'the-hanged-man'],
+];
+
+function pickIllustration(prompt: string): string {
+  for (const [re, id] of KEYWORD_ILLUSTRATION) {
+    if (re.test(prompt)) return id;
+  }
+  return 'the-fool';
+}
+
 export const mockAIClient: AIClient = {
   async generateCard(prompt: string): Promise<Blueprint> {
     await delay(500);
-    return pickByKeyword(prompt);
+    const bp = pickByKeyword(prompt);
+    return { ...bp, illustration: pickIllustration(prompt) };
   },
 
   async generateSymbol(description: string, _context: Blueprint): Promise<SymbolDef> {

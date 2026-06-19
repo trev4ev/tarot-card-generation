@@ -29,6 +29,7 @@ export type SymbolDef = {
 
 export type Blueprint = {
   id: string;
+  illustration: string | null;
   identity: {
     name: string;
     archetype: string;

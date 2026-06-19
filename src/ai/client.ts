@@ -1,5 +1,6 @@
 import type { AIClient } from './types';
 import type { Blueprint, SymbolDef } from '../types/blueprint';
+import { ILLUSTRATIONS } from '../illustrations/catalog';
 
 const API_URL = 'https://api.anthropic.com/v1/messages';
 const MODEL = 'claude-haiku-4-5-20251001';
@@ -43,31 +44,121 @@ function parseJson<T>(text: string): T {
   return JSON.parse(raw.trim()) as T;
 }
 
-const GENERATE_CARD_SYSTEM = `You are a tarot card design expert. Given a prompt, return a JSON Blueprint object that describes a tarot card's visual design. The Blueprint must strictly follow this TypeScript type:
+// ── Illustration catalog for the system prompt ────────────────────────────────
 
-{
-  id: string (use "generated"),
-  identity: { name: string, archetype: string, number: number | null, suit: string | null },
-  palette: { background: string, primaryAccent: string, secondaryAccent: string, text: string, border: string },
-  typography: { fontFamily: one of ["Cinzel","IM Fell English","UnifrakturMaguntia","Metamorphous","Pirata One","Almendra","Berkshire Swash","Uncial Antiqua","Cinzel Decorative","Eater"], titleSize: number, titleWeight: "300"|"400"|"500"|"600"|"700", bodySize: number, bodyWeight: "300"|"400"|"500"|"600"|"700", letterSpacing: number, titleCase: "upper"|"title"|"asGenerated", titleAlign: "left"|"center"|"right", titlePosition: "top"|"bottom"|"overlay" },
-  frame: { style: "simple"|"ornate"|"celtic"|"gothic"|"art-nouveau"|"minimal"|"double", thickness: number, cornerMotif: "none"|"fleur"|"star"|"spiral"|"celtic-knot"|"moon"|"sun"|"pentagram", color: string | null, innerMargin: number },
-  background: { baseColor: string, texture: "none"|"grain"|"parchment"|"canvas"|"linen"|"marble"|"watercolor", textureDensity: number (0-1), pattern: "none"|"stars"|"pentagrams"|"circles"|"diamonds"|"waves"|"vines"|"runes", patternOpacity: number (0-1) },
-  symbols: Array<{ id: string, kind: string, x: number (0-1), y: number (0-1), scale: number, opacity: number (0-1), flipX: boolean, flipY: boolean }>,
-  footer: { text: string, fontFamily: same as above, size: number, visible: boolean },
-  layout: { titlePosition: "top"|"bottom", illustrationArea: { x: number, y: number, width: number, height: number } },
-  mood: number (0-100)
+const ILLUSTRATION_LIST = ILLUSTRATIONS
+  .map((ill) => `  - id: "${ill.id}" — ${ill.name}: ${ill.description}`)
+  .join('\n');
+
+// ── Structured AI response type ───────────────────────────────────────────────
+
+interface AICardResponse {
+  illustrationId: string;
+  identity: Blueprint['identity'];
+  palette: Blueprint['palette'];
+  typography: Blueprint['typography'];
+  frame: Blueprint['frame'];
+  background: Blueprint['background'];
+  footer: Blueprint['footer'];
+  mood: number;
+  symbols: SymbolDef[];
 }
 
-Return ONLY valid JSON wrapped in a \`\`\`json\`\`\` block.`;
+// ── Map AI response → Blueprint ───────────────────────────────────────────────
 
-const REIMAGINE_SYSTEM = `You are a tarot card design expert. Given an existing Blueprint JSON and an instruction, return a modified Blueprint JSON. Apply the instruction while preserving the overall structure. Return ONLY valid JSON wrapped in a \`\`\`json\`\`\` block.`;
+function responseToBlueprintPatch(r: AICardResponse): Omit<Blueprint, 'id'> {
+  const titlePosition = r.typography?.titlePosition ?? 'top';
+  return {
+    illustration: r.illustrationId ?? null,
+    identity: r.identity,
+    palette: r.palette,
+    typography: r.typography,
+    frame: r.frame,
+    background: r.background,
+    footer: r.footer,
+    mood: r.mood ?? 50,
+    symbols: r.symbols ?? [],
+    layout: {
+      titlePosition: titlePosition === 'overlay' ? 'top' : titlePosition as 'top' | 'bottom',
+      illustrationArea: { x: 0.05, y: 0.14, width: 0.9, height: 0.66 },
+    },
+  };
+}
+
+// ── System prompts ────────────────────────────────────────────────────────────
+
+const GENERATE_CARD_SYSTEM = `You are a tarot card design expert. Given a prompt, return a JSON object that describes a tarot card's visual design and selects one pre-made illustration from the list below.
+
+AVAILABLE ILLUSTRATIONS (pick the one that best fits the prompt):
+${ILLUSTRATION_LIST}
+
+Return a JSON object with this exact shape (wrapped in a \`\`\`json\`\`\` block):
+{
+  "illustrationId": string,  // must be one of the ids listed above
+  "identity": {
+    "name": string,
+    "archetype": string,
+    "number": number | null,
+    "suit": string | null
+  },
+  "palette": {
+    "background": string (hex),
+    "primaryAccent": string (hex),
+    "secondaryAccent": string (hex),
+    "text": string (hex),
+    "border": string (hex)
+  },
+  "typography": {
+    "fontFamily": one of ["Cinzel","IM Fell English","UnifrakturMaguntia","Metamorphous","Pirata One","Almendra","Berkshire Swash","Uncial Antiqua","Cinzel Decorative","Eater"],
+    "titleSize": number (18-32),
+    "titleWeight": "300"|"400"|"500"|"600"|"700",
+    "bodySize": number (10-16),
+    "bodyWeight": "300"|"400"|"500"|"600"|"700",
+    "letterSpacing": number (0-6),
+    "titleCase": "upper"|"title"|"asGenerated",
+    "titleAlign": "left"|"center"|"right",
+    "titlePosition": "top"|"bottom"
+  },
+  "frame": {
+    "style": "simple"|"ornate"|"celtic"|"gothic"|"art-nouveau"|"minimal"|"double",
+    "thickness": number (4-14),
+    "cornerMotif": "none"|"fleur"|"star"|"spiral"|"celtic-knot"|"moon"|"sun"|"pentagram",
+    "color": string (hex) | null,
+    "innerMargin": number (8-20)
+  },
+  "background": {
+    "baseColor": string (hex),
+    "texture": "none"|"grain"|"parchment"|"canvas"|"linen"|"marble"|"watercolor",
+    "textureDensity": number (0-1),
+    "pattern": "none"|"stars"|"pentagrams"|"circles"|"diamonds"|"waves"|"vines"|"runes",
+    "patternOpacity": number (0-1)
+  },
+  "footer": {
+    "text": string,
+    "fontFamily": same font options as above,
+    "size": number (9-14),
+    "visible": boolean
+  },
+  "mood": number (0-100, where 0=shadow/dark, 50=neutral, 100=radiant/light),
+  "symbols": []
+}
+
+Choose colors, fonts, frame, and texture to match the thematic feel of the chosen illustration. Make the design cohesive.`;
+
+const REIMAGINE_SYSTEM = `You are a tarot card design expert. Given an existing card design and an instruction, return a modified design in the same JSON format.
+
+AVAILABLE ILLUSTRATIONS:
+${ILLUSTRATION_LIST}
+
+Return ONLY a JSON object (in a \`\`\`json\`\`\` block) with the same shape as the input, updated per the instruction. You may change illustrationId if the instruction calls for a different subject.`;
+
+// ── Real AI client ────────────────────────────────────────────────────────────
 
 export const realAIClient: AIClient = {
   async generateCard(prompt: string): Promise<Blueprint> {
     const text = await callClaude(GENERATE_CARD_SYSTEM, `Design a tarot card for: ${prompt}`);
-    const bp = parseJson<Blueprint>(text);
-    bp.id = crypto.randomUUID();
-    return bp;
+    const response = parseJson<AICardResponse>(text);
+    return { ...responseToBlueprintPatch(response), id: crypto.randomUUID() };
   },
 
   async generateSymbol(description: string, context: Blueprint): Promise<SymbolDef> {
@@ -82,12 +173,22 @@ export const realAIClient: AIClient = {
   },
 
   async reimagineCard(blueprint: Blueprint, instruction: string): Promise<Blueprint> {
+    const current: AICardResponse = {
+      illustrationId: blueprint.illustration ?? '',
+      identity: blueprint.identity,
+      palette: blueprint.palette,
+      typography: blueprint.typography,
+      frame: blueprint.frame,
+      background: blueprint.background,
+      footer: blueprint.footer,
+      mood: blueprint.mood,
+      symbols: blueprint.symbols,
+    };
     const text = await callClaude(
       REIMAGINE_SYSTEM,
-      `Instruction: ${instruction}\n\nBlueprint: ${JSON.stringify(blueprint, null, 2)}`,
+      `Instruction: ${instruction}\n\nCurrent design: ${JSON.stringify(current, null, 2)}`,
     );
-    const bp = parseJson<Blueprint>(text);
-    bp.id = crypto.randomUUID();
-    return bp;
+    const response = parseJson<AICardResponse>(text);
+    return { ...responseToBlueprintPatch(response), id: crypto.randomUUID() };
   },
 };
