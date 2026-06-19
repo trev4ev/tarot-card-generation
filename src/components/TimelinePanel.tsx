@@ -67,24 +67,49 @@ function NodeThumbnail({ node }: { node: TimelineNode }) {
 
 // ── NodeRow ────────────────────────────────────────────────────────────────────
 
+interface TransferTarget {
+  id: string;
+  label: string;
+}
+
 interface NodeRowProps {
   node: TimelineNode;
   isActive: boolean;
   isActiveBranch: boolean;
   showBranchButton: boolean;
+  transferTargets: TransferTarget[];
   onSelect: () => void;
   onBranch: () => void;
+  onTransfer: (toBranchId: string) => void;
 }
 
-function NodeRow({ node, isActive, isActiveBranch, showBranchButton, onSelect, onBranch }: NodeRowProps) {
+function NodeRow({
+  node, isActive, isActiveBranch, showBranchButton,
+  transferTargets, onSelect, onBranch, onTransfer,
+}: NodeRowProps) {
   const [hovered, setHovered] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const highlight = isActive && isActiveBranch;
+  const canTransfer = transferTargets.length > 0;
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handle(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [menuOpen]);
 
   return (
     <li
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{ listStyle: 'none' }}
+      onMouseLeave={() => { setHovered(false); setMenuOpen(false); }}
+      style={{ listStyle: 'none', position: 'relative' }}
     >
       <button
         onClick={onSelect}
@@ -126,30 +151,95 @@ function NodeRow({ node, isActive, isActiveBranch, showBranchButton, onSelect, o
           <span style={{ fontSize: '10px', color: '#555' }}>
             {new Date(node.timestamp).toLocaleTimeString()}
           </span>
-          {showBranchButton && hovered && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onBranch();
-              }}
-              title="Branch from here"
-              style={{
-                alignSelf: 'flex-start',
-                marginTop: '4px',
-                background: '#2a2a4e',
-                border: '1px solid #4a3f7e',
-                color: '#c4b5fd',
-                borderRadius: '3px',
-                padding: '2px 6px',
-                fontSize: '10px',
-                cursor: 'pointer',
-              }}
-            >
-              branch
-            </button>
+
+          {hovered && (
+            <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+              {showBranchButton && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onBranch(); }}
+                  title="Branch from here"
+                  style={{
+                    background: '#2a2a4e',
+                    border: '1px solid #4a3f7e',
+                    color: '#c4b5fd',
+                    borderRadius: '3px',
+                    padding: '2px 6px',
+                    fontSize: '10px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  branch
+                </button>
+              )}
+              {canTransfer && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }}
+                  title="Send this edit to another branch"
+                  style={{
+                    background: '#1e3a2a',
+                    border: '1px solid #2e6a4a',
+                    color: '#6ee7b7',
+                    borderRadius: '3px',
+                    padding: '2px 6px',
+                    fontSize: '10px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ↗ send
+                </button>
+              )}
+            </div>
           )}
         </div>
       </button>
+
+      {/* Transfer dropdown */}
+      {menuOpen && (
+        <div
+          ref={menuRef}
+          style={{
+            position: 'absolute',
+            right: 8,
+            top: '100%',
+            zIndex: 50,
+            background: '#0f1a2e',
+            border: '1px solid #2e6a4a',
+            borderRadius: '5px',
+            padding: '4px 0',
+            minWidth: '120px',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
+          }}
+        >
+          <div style={{ padding: '4px 10px 6px', fontSize: '9px', color: '#4a9a7a', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            Send edit to
+          </div>
+          {transferTargets.map((t) => (
+            <button
+              key={t.id}
+              onClick={(e) => {
+                e.stopPropagation();
+                onTransfer(t.id);
+                setMenuOpen(false);
+              }}
+              style={{
+                display: 'block',
+                width: '100%',
+                textAlign: 'left',
+                padding: '5px 10px',
+                background: 'transparent',
+                border: 'none',
+                color: '#a7f3d0',
+                fontSize: '11px',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#1a3a2a'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
     </li>
   );
 }
@@ -160,13 +250,15 @@ interface BranchSectionProps {
   branch: Branch;
   isActiveBranch: boolean;
   canBranch: boolean;
+  allBranches: Branch[];
 }
 
-function BranchSection({ branch, isActiveBranch, canBranch }: BranchSectionProps) {
+function BranchSection({ branch, isActiveBranch, canBranch, allBranches }: BranchSectionProps) {
   const setActiveNode = useStore((s) => s.setActiveNode);
   const branchFrom = useStore((s) => s.branchFrom);
   const renameBranch = useStore((s) => s.renameBranch);
   const toggleBranchCollapse = useStore((s) => s.toggleBranchCollapse);
+  const transferEdit = useStore((s) => s.transferEdit);
 
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(branch.label);
@@ -179,7 +271,6 @@ function BranchSection({ branch, isActiveBranch, canBranch }: BranchSectionProps
     }
   }, [renaming]);
 
-  // Keep rename value in sync when branch.label changes externally
   useEffect(() => {
     if (!renaming) setRenameValue(branch.label);
   }, [branch.label, renaming]);
@@ -192,13 +283,12 @@ function BranchSection({ branch, isActiveBranch, canBranch }: BranchSectionProps
   }
 
   const reversedNodes = [...branch.nodes].reverse();
+  const transferTargets = allBranches
+    .filter((b) => b.id !== branch.id)
+    .map((b) => ({ id: b.id, label: b.label }));
 
   return (
-    <div
-      style={{
-        borderBottom: '1px solid #2a2a4e',
-      }}
-    >
+    <div style={{ borderBottom: '1px solid #2a2a4e' }}>
       {/* Header */}
       <div
         style={{
@@ -235,10 +325,7 @@ function BranchSection({ branch, isActiveBranch, canBranch }: BranchSectionProps
             onBlur={confirmRename}
             onKeyDown={(e) => {
               if (e.key === 'Enter') confirmRename();
-              if (e.key === 'Escape') {
-                setRenameValue(branch.label);
-                setRenaming(false);
-              }
+              if (e.key === 'Escape') { setRenameValue(branch.label); setRenaming(false); }
             }}
             style={{
               flex: 1,
@@ -270,10 +357,7 @@ function BranchSection({ branch, isActiveBranch, canBranch }: BranchSectionProps
 
         {!renaming && (
           <button
-            onClick={() => {
-              setRenameValue(branch.label);
-              setRenaming(true);
-            }}
+            onClick={() => { setRenameValue(branch.label); setRenaming(true); }}
             title="Rename branch"
             style={{
               background: 'none',
@@ -291,30 +375,31 @@ function BranchSection({ branch, isActiveBranch, canBranch }: BranchSectionProps
         )}
       </div>
 
-      {/* Nodes or collapsed summary */}
+      {/* Nodes */}
       {branch.collapsed ? (
-        <div
-          style={{
-            padding: '6px 12px',
-            fontSize: '10px',
-            color: '#555',
-          }}
-        >
+        <div style={{ padding: '6px 12px', fontSize: '10px', color: '#555' }}>
           {branch.nodes.length} node{branch.nodes.length !== 1 ? 's' : ''}
         </div>
       ) : (
         <ul style={{ listStyle: 'none', padding: '4px 0', margin: 0 }}>
-          {reversedNodes.map((node) => (
-            <NodeRow
-              key={node.id}
-              node={node}
-              isActive={node.id === branch.activeNodeId}
-              isActiveBranch={isActiveBranch}
-              showBranchButton={canBranch}
-              onSelect={() => setActiveNode(node.id)}
-              onBranch={() => branchFrom(node.id, branch.id)}
-            />
-          ))}
+          {reversedNodes.map((node) => {
+            // Only show transfer if node's parent is within this same branch
+            const parentInBranch = node.parentId !== null &&
+              branch.nodes.some((n) => n.id === node.parentId);
+            return (
+              <NodeRow
+                key={node.id}
+                node={node}
+                isActive={node.id === branch.activeNodeId}
+                isActiveBranch={isActiveBranch}
+                showBranchButton={canBranch}
+                transferTargets={parentInBranch ? transferTargets : []}
+                onSelect={() => setActiveNode(node.id)}
+                onBranch={() => branchFrom(node.id, branch.id)}
+                onTransfer={(toBranchId) => transferEdit(branch.id, node.id, toBranchId)}
+              />
+            );
+          })}
         </ul>
       )}
     </div>
@@ -362,6 +447,7 @@ export function TimelinePanel() {
             branch={branch}
             isActiveBranch={branch.id === activeBranchId}
             canBranch={canBranch}
+            allBranches={branches}
           />
         ))}
       </div>

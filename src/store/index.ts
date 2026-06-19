@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Blueprint, TimelineNode, Branch, ElementRef, SymbolDef } from '../types/blueprint';
+import type { Blueprint, TimelineNode, Branch, ElementRef, SymbolDef, DiffEntry } from '../types/blueprint';
 import { theFool } from '../fixtures/cards';
 
 // ── DeepPartial ──────────────────────────────────────────────────────────────
@@ -26,6 +26,53 @@ function deepMerge<T>(base: T, patch: DeepPartial<T>): T {
       : patchVal;
   }
   return result as T;
+}
+
+// ── Blueprint diff ────────────────────────────────────────────────────────────
+
+function flattenPaths(obj: unknown, prefix: string[]): Map<string, unknown> {
+  const result = new Map<string, unknown>();
+  // Arrays and primitives are atomic — don't recurse into them
+  if (Array.isArray(obj) || obj === null || typeof obj !== 'object') {
+    result.set(prefix.join('.'), obj);
+    return result;
+  }
+  for (const [key, val] of Object.entries(obj as Record<string, unknown>)) {
+    for (const [path, value] of flattenPaths(val, [...prefix, key])) {
+      result.set(path, value);
+    }
+  }
+  return result;
+}
+
+export function diffBlueprints(a: Blueprint, b: Blueprint): DiffEntry[] {
+  const aFlat = flattenPaths(a, []);
+  const bFlat = flattenPaths(b, []);
+  const entries: DiffEntry[] = [];
+  const allKeys = new Set([...aFlat.keys(), ...bFlat.keys()]);
+  for (const path of allKeys) {
+    if (path === 'id') continue;
+    const aVal = aFlat.get(path);
+    const bVal = bFlat.get(path);
+    if (JSON.stringify(aVal) !== JSON.stringify(bVal)) {
+      entries.push({ path: path.split('.'), oldValue: aVal, newValue: bVal });
+    }
+  }
+  return entries;
+}
+
+function buildPatchFromDiffs(diffs: DiffEntry[]): DeepPartial<Blueprint> {
+  const result: Record<string, unknown> = {};
+  for (const diff of diffs) {
+    let obj = result;
+    for (let i = 0; i < diff.path.length - 1; i++) {
+      const key = diff.path[i];
+      if (!isPlainObject(obj[key])) obj[key] = {};
+      obj = obj[key] as Record<string, unknown>;
+    }
+    obj[diff.path[diff.path.length - 1]] = diff.newValue;
+  }
+  return result as DeepPartial<Blueprint>;
 }
 
 // ── Store types ──────────────────────────────────────────────────────────────
@@ -61,6 +108,8 @@ export interface StoreState {
   updateSymbol: (symbolId: string, patch: Partial<SymbolDef>) => void;
   addSymbol: (sym: SymbolDef) => void;
   removeSymbol: (symbolId: string) => void;
+  patchBlueprintOnBranch: (branchId: string, patch: DeepPartial<Blueprint>, label: string) => void;
+  transferEdit: (fromBranchId: string, nodeId: string, toBranchId: string) => void;
 }
 
 // ── Initial state factory ─────────────────────────────────────────────────────
@@ -251,5 +300,43 @@ export const useStore = create<StoreState>((set, get) => ({
     if (!current) return;
     const symbols = current.symbols.filter((s) => s.id !== symbolId);
     state.patchBlueprint({ symbols }, 'Remove symbol');
+  },
+
+  patchBlueprintOnBranch: (branchId, patch, label) => {
+    const state = get();
+    const branch = state.branches.find((b) => b.id === branchId);
+    if (!branch) return;
+    const activeNode = branch.nodes.find((n) => n.id === branch.activeNodeId);
+    if (!activeNode) return;
+    const patched = deepMerge(activeNode.blueprint, patch);
+    const newNode: TimelineNode = {
+      id: crypto.randomUUID(),
+      blueprint: patched,
+      parentId: branch.activeNodeId,
+      label,
+      timestamp: Date.now(),
+    };
+    set((s) => ({
+      branches: s.branches.map((b) =>
+        b.id === branchId
+          ? { ...b, nodes: [...b.nodes, newNode], activeNodeId: newNode.id }
+          : b
+      ),
+    }));
+  },
+
+  transferEdit: (fromBranchId, nodeId, toBranchId) => {
+    const state = get();
+    const fromBranch = state.branches.find((b) => b.id === fromBranchId);
+    if (!fromBranch) return;
+    const node = fromBranch.nodes.find((n) => n.id === nodeId);
+    if (!node || !node.parentId) return;
+    // Only transfer when the parent lives in the same branch
+    const parentNode = fromBranch.nodes.find((n) => n.id === node.parentId);
+    if (!parentNode) return;
+    const diffs = diffBlueprints(parentNode.blueprint, node.blueprint);
+    if (diffs.length === 0) return;
+    const patch = buildPatchFromDiffs(diffs);
+    state.patchBlueprintOnBranch(toBranchId, patch, `↩ from ${fromBranch.label}: ${node.label}`);
   },
 }));
