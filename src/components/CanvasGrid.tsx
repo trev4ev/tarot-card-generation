@@ -82,25 +82,31 @@ function drawSelectionOnLayer(
 
 // ── EmptySlot ──────────────────────────────────────────────────────────────────
 
-function EmptySlot() {
+function EmptySlot({ slot }: { slot: number }) {
   return (
     <div
       style={{
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         width: '100%',
         height: '100%',
-        border: '2px dashed #2a2a4e',
-        borderRadius: '8px',
-        color: '#4a4a6e',
-        fontSize: '13px',
+        border: '1px dashed #252545',
+        borderRadius: '10px',
         textAlign: 'center',
-        padding: '16px',
+        padding: '24px',
         boxSizing: 'border-box',
+        gap: '10px',
       }}
     >
-      Branch from timeline →
+      <div style={{ fontSize: '28px', color: '#2a2a4e', lineHeight: 1 }}>⊕</div>
+      <div style={{ fontSize: '11px', fontWeight: 600, color: '#3a3a5e', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+        Branch {slot + 1}
+      </div>
+      <div style={{ fontSize: '11px', color: '#2e2e50', lineHeight: 1.6, maxWidth: '120px' }}>
+        Branch from a timeline node to open this slot
+      </div>
     </div>
   );
 }
@@ -262,11 +268,11 @@ export function CanvasGrid() {
     >
       {slots.map((branch, i) => {
         if (!branch) {
-          return <EmptySlot key={`empty-${i}`} />;
+          return <EmptySlot key={`empty-${i}`} slot={i} />;
         }
         const activeNode = branch.nodes.find((n) => n.id === branch.activeNodeId);
         if (!activeNode) {
-          return <EmptySlot key={branch.id} />;
+          return <EmptySlot key={branch.id} slot={i} />;
         }
         const isActive = branch.id === activeBranchId;
         return (

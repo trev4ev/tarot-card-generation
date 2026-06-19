@@ -90,8 +90,16 @@ function NodeRow({
   const [hovered, setHovered] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const liRef = useRef<HTMLLIElement | null>(null);
   const highlight = isActive && isActiveBranch;
   const canTransfer = transferTargets.length > 0;
+
+  // Auto-scroll into view when this node becomes active
+  useEffect(() => {
+    if (isActive && liRef.current) {
+      liRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [isActive]);
 
   // Close menu on outside click
   useEffect(() => {
@@ -107,12 +115,17 @@ function NodeRow({
 
   return (
     <li
+      ref={liRef}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => { setHovered(false); setMenuOpen(false); }}
       style={{ listStyle: 'none', position: 'relative' }}
     >
-      <button
+      {/* Select row — no nested interactive elements so clicks reach buttons below */}
+      <div
         onClick={onSelect}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSelect(); }}
         style={{
           width: '100%',
           textAlign: 'left',
@@ -125,10 +138,6 @@ function NodeRow({
           alignItems: 'flex-start',
           transition: 'background 0.15s',
           cursor: 'pointer',
-          border: 'none',
-          borderRight: 'none',
-          borderTop: 'none',
-          borderBottom: 'none',
         }}
       >
         <NodeThumbnail node={node} />
@@ -151,47 +160,48 @@ function NodeRow({
           <span style={{ fontSize: '10px', color: '#555' }}>
             {new Date(node.timestamp).toLocaleTimeString()}
           </span>
+        </div>
+      </div>
 
-          {hovered && (
-            <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
-              {showBranchButton && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); onBranch(); }}
-                  title="Branch from here"
-                  style={{
-                    background: '#2a2a4e',
-                    border: '1px solid #4a3f7e',
-                    color: '#c4b5fd',
-                    borderRadius: '3px',
-                    padding: '2px 6px',
-                    fontSize: '10px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  branch
-                </button>
-              )}
-              {canTransfer && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }}
-                  title="Send this edit to another branch"
-                  style={{
-                    background: '#1e3a2a',
-                    border: '1px solid #2e6a4a',
-                    color: '#6ee7b7',
-                    borderRadius: '3px',
-                    padding: '2px 6px',
-                    fontSize: '10px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  ↗ send
-                </button>
-              )}
-            </div>
+      {/* Hover actions — sibling of select row so buttons are not nested in a button */}
+      {hovered && (showBranchButton || canTransfer) && (
+        <div style={{ display: 'flex', gap: '4px', padding: '0 12px 6px 68px' }}>
+          {showBranchButton && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onBranch(); }}
+              title="Branch from here"
+              style={{
+                background: '#2a2a4e',
+                border: '1px solid #4a3f7e',
+                color: '#c4b5fd',
+                borderRadius: '3px',
+                padding: '2px 6px',
+                fontSize: '10px',
+                cursor: 'pointer',
+              }}
+            >
+              branch
+            </button>
+          )}
+          {canTransfer && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }}
+              title="Send this edit to another branch"
+              style={{
+                background: '#1e3a2a',
+                border: '1px solid #2e6a4a',
+                color: '#6ee7b7',
+                borderRadius: '3px',
+                padding: '2px 6px',
+                fontSize: '10px',
+                cursor: 'pointer',
+              }}
+            >
+              ↗ send
+            </button>
           )}
         </div>
-      </button>
+      )}
 
       {/* Transfer dropdown */}
       {menuOpen && (

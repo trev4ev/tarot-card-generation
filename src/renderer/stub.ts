@@ -6,6 +6,7 @@ import type {
   SymbolDef,
   CornerMotifEnum,
   PatternEnum,
+  TextureEnum,
 } from '../types/blueprint';
 
 const CARD_W = 300;
@@ -139,6 +140,115 @@ function drawPattern(
             x0 + (rng(v * 5 + 4) - 0.5) * 60, y0 + (CARD_H / 5) * 3,
           ],
           tension: 0.5, stroke: color, strokeWidth: 2, opacity, listening: false,
+        }));
+      }
+      break;
+    }
+    default:
+      break;
+  }
+}
+
+// ── Textures ──────────────────────────────────────────────────────────────────
+
+function drawTexture(
+  layer: Konva.Layer,
+  texture: TextureEnum,
+  density: number,
+  seed: string,
+): void {
+  if (texture === 'none' || density <= 0) return;
+  const d = Math.max(0, Math.min(1, density));
+  const rng = (i: number) => seededRng(seed, 1000 + i);
+
+  switch (texture) {
+    case 'grain': {
+      const count = Math.floor(80 + d * 120);
+      for (let i = 0; i < count; i++) {
+        layer.add(new Konva.Circle({
+          x: rng(i * 3) * CARD_W, y: rng(i * 3 + 1) * CARD_H,
+          radius: 0.6 + rng(i * 3 + 2) * 1.4,
+          fill: rng(i * 7) > 0.5 ? '#ffffff' : '#000000',
+          opacity: d * (0.04 + rng(i * 5) * 0.06),
+          listening: false,
+        }));
+      }
+      break;
+    }
+    case 'parchment': {
+      layer.add(new Konva.Rect({
+        x: 0, y: 0, width: CARD_W, height: CARD_H,
+        fill: '#c4a265', opacity: d * 0.18, listening: false,
+      }));
+      const count = Math.floor(d * 70);
+      for (let i = 0; i < count; i++) {
+        layer.add(new Konva.Circle({
+          x: rng(i * 3) * CARD_W, y: rng(i * 3 + 1) * CARD_H,
+          radius: 1 + rng(i * 3 + 2) * 3,
+          fill: '#6b4c10',
+          opacity: d * (0.02 + rng(i) * 0.04),
+          listening: false,
+        }));
+      }
+      break;
+    }
+    case 'canvas': {
+      const step = Math.max(5, Math.floor(13 - d * 6));
+      for (let i = 0; i * step <= Math.max(CARD_W, CARD_H); i++) {
+        layer.add(new Konva.Line({
+          points: [i * step, 0, i * step, CARD_H],
+          stroke: '#ffffff', strokeWidth: 0.5, opacity: d * 0.07, listening: false,
+        }));
+        layer.add(new Konva.Line({
+          points: [0, i * step, CARD_W, i * step],
+          stroke: '#ffffff', strokeWidth: 0.5, opacity: d * 0.07, listening: false,
+        }));
+      }
+      break;
+    }
+    case 'linen': {
+      const step = Math.max(4, Math.floor(9 - d * 4));
+      for (let i = 0; i * step <= Math.max(CARD_W, CARD_H); i++) {
+        layer.add(new Konva.Line({
+          points: [i * step, 0, i * step, CARD_H],
+          stroke: '#ffffff', strokeWidth: 0.35, opacity: d * 0.06, listening: false,
+        }));
+        layer.add(new Konva.Line({
+          points: [0, i * step, CARD_W, i * step],
+          stroke: '#ffffff', strokeWidth: 0.35, opacity: d * 0.06, listening: false,
+        }));
+      }
+      break;
+    }
+    case 'marble': {
+      for (let v = 0; v < 6; v++) {
+        const x0 = rng(v * 7) * CARD_W;
+        const y0 = rng(v * 7 + 1) * CARD_H;
+        const pts: number[] = [x0, y0];
+        for (let j = 1; j <= 4; j++) {
+          pts.push(
+            x0 + (rng(v * 7 + j * 2) - 0.5) * CARD_W,
+            y0 + (rng(v * 7 + j * 2 + 1) - 0.5) * CARD_H * 0.8,
+          );
+        }
+        layer.add(new Konva.Line({
+          points: pts, tension: 0.55,
+          stroke: '#ffffff',
+          strokeWidth: d * (2 + rng(v * 3) * 6),
+          opacity: d * (0.04 + rng(v * 2) * 0.09),
+          listening: false,
+        }));
+      }
+      break;
+    }
+    case 'watercolor': {
+      for (let i = 0; i < 8; i++) {
+        layer.add(new Konva.Circle({
+          x: rng(i * 4) * CARD_W, y: rng(i * 4 + 1) * CARD_H,
+          radius: 30 + rng(i * 4 + 2) * 90,
+          fill: '#ffffff',
+          opacity: d * (0.025 + rng(i * 4 + 3) * 0.055),
+          listening: false,
         }));
       }
       break;
@@ -350,7 +460,10 @@ export const rendererStub: RendererAPI = {
       fill: bg.baseColor, id: 'background',
     }));
 
-    // 2 — Pattern overlay (beneath frame)
+    // 2 — Texture overlay (beneath pattern and frame)
+    drawTexture(layer, bg.texture, bg.textureDensity, blueprint.id);
+
+    // 2b — Pattern overlay (beneath frame)
     drawPattern(layer, bg.pattern, bg.patternOpacity, palette.primaryAccent, blueprint.id);
 
     // 3 — Outer frame border
@@ -465,19 +578,29 @@ export const rendererStub: RendererAPI = {
       }));
     }
 
-    // 11 — Mood overlay
+    // 11 — Mood overlay (vignette / glow via radial gradient)
     const moodRatio = blueprint.mood / 100;
     if (moodRatio < 0.45) {
       const t = (0.45 - moodRatio) / 0.45;
       layer.add(new Konva.Rect({
         x: 0, y: 0, width: CARD_W, height: CARD_H,
-        fill: '#060415', opacity: t * 0.45, listening: false,
+        fillRadialGradientStartPoint: { x: CARD_W / 2, y: CARD_H / 2 },
+        fillRadialGradientStartRadius: CARD_H * 0.18,
+        fillRadialGradientEndPoint: { x: CARD_W / 2, y: CARD_H / 2 },
+        fillRadialGradientEndRadius: CARD_H * 0.88,
+        fillRadialGradientColorStops: [0, 'rgba(6,4,21,0)', 1, `rgba(6,4,21,${+(t * 0.72).toFixed(3)})`],
+        listening: false,
       }));
     } else if (moodRatio > 0.65) {
       const t = (moodRatio - 0.65) / 0.35;
       layer.add(new Konva.Rect({
         x: 0, y: 0, width: CARD_W, height: CARD_H,
-        fill: '#fff8e8', opacity: t * 0.18, listening: false,
+        fillRadialGradientStartPoint: { x: CARD_W / 2, y: CARD_H / 2 },
+        fillRadialGradientStartRadius: 0,
+        fillRadialGradientEndPoint: { x: CARD_W / 2, y: CARD_H / 2 },
+        fillRadialGradientEndRadius: CARD_H * 0.72,
+        fillRadialGradientColorStops: [0, `rgba(255,248,220,${+(t * 0.28).toFixed(3)})`, 1, 'rgba(255,248,220,0)'],
+        listening: false,
       }));
     }
 

@@ -203,7 +203,7 @@ export const useStore = create<StoreState>((set, get) => ({
     const state = get();
     const current = state.activeBlueprint();
     if (!current) return;
-    const patched = deepMerge(current, patch);
+    const patched = { ...deepMerge(current, patch), id: crypto.randomUUID() };
     state.addNode(patched, label);
   },
 
@@ -250,6 +250,7 @@ export const useStore = create<StoreState>((set, get) => ({
     set((s) => ({
       branches: [...s.branches, newBranch],
       activeBranchId: newBranch.id,
+      selectedElement: null,
     }));
     return newBranch;
   },
@@ -308,7 +309,7 @@ export const useStore = create<StoreState>((set, get) => ({
     if (!branch) return;
     const activeNode = branch.nodes.find((n) => n.id === branch.activeNodeId);
     if (!activeNode) return;
-    const patched = deepMerge(activeNode.blueprint, patch);
+    const patched = { ...deepMerge(activeNode.blueprint, patch), id: crypto.randomUUID() };
     const newNode: TimelineNode = {
       id: crypto.randomUUID(),
       blueprint: patched,

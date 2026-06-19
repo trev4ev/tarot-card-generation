@@ -61,11 +61,16 @@ function Section({
   open?: boolean;
   children: React.ReactNode;
 }) {
+  const [isOpen, setIsOpen] = useState(open);
   return (
-    <details open={open} style={panelStyle}>
+    <details
+      open={isOpen}
+      onToggle={(e) => setIsOpen((e.currentTarget as HTMLDetailsElement).open)}
+      style={panelStyle}
+    >
       <summary style={summaryStyle}>
         {title}
-        <span>▾</span>
+        <span style={{ transition: 'transform 0.15s', display: 'inline-block', transform: isOpen ? 'none' : 'rotate(-90deg)' }}>▾</span>
       </summary>
       <div
         style={{
