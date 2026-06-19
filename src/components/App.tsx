@@ -1,4 +1,4 @@
-import { CardCanvas } from './CardCanvas';
+import { CanvasGrid } from './CanvasGrid';
 import { ControlsPanel } from './ControlsPanel';
 import { TimelinePanel } from './TimelinePanel';
 
@@ -16,18 +16,18 @@ export function App() {
       {/* Left: Controls */}
       <ControlsPanel />
 
-      {/* Center: Canvas */}
+      {/* Center: Canvas Grid */}
       <main
         style={{
           flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
           overflow: 'hidden',
           background: '#0f0f1e',
+          display: 'flex',
+          alignItems: 'stretch',
+          justifyContent: 'stretch',
         }}
       >
-        <CardCanvas />
+        <CanvasGrid />
       </main>
 
       {/* Right: Timeline */}

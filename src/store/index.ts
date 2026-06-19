@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Blueprint, TimelineNode, BlueprintDiff, DiffEntry } from '../types/blueprint';
+import type { Blueprint, TimelineNode, Branch } from '../types/blueprint';
 import { theFool } from '../fixtures/cards';
 
 // ── DeepPartial ──────────────────────────────────────────────────────────────
@@ -28,116 +28,117 @@ function deepMerge<T>(base: T, patch: DeepPartial<T>): T {
   return result as T;
 }
 
-// ── diff helpers ─────────────────────────────────────────────────────────────
-function diffBlueprints(a: Blueprint, b: Blueprint): DiffEntry[] {
-  const entries: DiffEntry[] = [];
-
-  function walk(oldVal: unknown, newVal: unknown, path: string[]): void {
-    if (isPlainObject(oldVal) && isPlainObject(newVal)) {
-      const keys = new Set([...Object.keys(oldVal), ...Object.keys(newVal)]);
-      for (const k of keys) {
-        walk(oldVal[k], newVal[k], [...path, k]);
-      }
-    } else if (Array.isArray(oldVal) && Array.isArray(newVal)) {
-      const len = Math.max(oldVal.length, newVal.length);
-      for (let i = 0; i < len; i++) {
-        walk(oldVal[i], newVal[i], [...path, String(i)]);
-      }
-    } else if (oldVal !== newVal) {
-      entries.push({ path, oldValue: oldVal, newValue: newVal });
-    }
-  }
-
-  walk(a, b, []);
-  return entries;
-}
-
 // ── Store types ──────────────────────────────────────────────────────────────
 export interface StoreState {
-  // Timeline
-  nodes: TimelineNode[];
-  activeNodeId: string | null;
-  diffs: BlueprintDiff[];
+  // Branches
+  branches: Branch[];
+  activeBranchId: string;
 
   // UI state
   isGenerating: boolean;
   prompt: string;
 
   // Derived selectors
+  activeBranch: () => Branch | null;
   activeBlueprint: () => Blueprint | null;
 
   // Actions
   setPrompt: (prompt: string) => void;
-  addNode: (blueprint: Blueprint, label: string, parentId?: string | null) => TimelineNode;
-  setActiveNode: (id: string) => void;
+  addNode: (blueprint: Blueprint, label: string) => TimelineNode;
+  setActiveNode: (nodeId: string) => void;
+  setActiveBranch: (branchId: string) => void;
   patchBlueprint: (patch: DeepPartial<Blueprint>, label?: string) => void;
   updateLiveBlueprint: (patch: DeepPartial<Blueprint>) => void;
+  branchFrom: (nodeId: string, sourceBranchId: string) => Branch | null;
+  renameBranch: (branchId: string, label: string) => void;
+  toggleBranchCollapse: (branchId: string) => void;
   setIsGenerating: (val: boolean) => void;
   resetToFixture: () => void;
 }
 
-// ── Store ────────────────────────────────────────────────────────────────────
-const initialNode: TimelineNode = {
-  id: crypto.randomUUID(),
-  blueprint: { ...theFool, id: crypto.randomUUID() },
-  parentId: null,
-  label: 'Initial',
-  timestamp: Date.now(),
-};
+// ── Initial state factory ─────────────────────────────────────────────────────
+function makeInitialBranch(): Branch {
+  const node: TimelineNode = {
+    id: crypto.randomUUID(),
+    blueprint: { ...theFool, id: crypto.randomUUID() },
+    parentId: null,
+    label: 'Initial',
+    timestamp: Date.now(),
+  };
+  return {
+    id: crypto.randomUUID(),
+    label: 'Main',
+    nodes: [node],
+    activeNodeId: node.id,
+    collapsed: false,
+    sourceNodeId: null,
+    sourceBranchId: null,
+  };
+}
 
+const initialBranch = makeInitialBranch();
+
+// ── Store ────────────────────────────────────────────────────────────────────
 export const useStore = create<StoreState>((set, get) => ({
-  nodes: [initialNode],
-  activeNodeId: initialNode.id,
-  diffs: [],
+  branches: [initialBranch],
+  activeBranchId: initialBranch.id,
   isGenerating: false,
   prompt: '',
 
+  activeBranch: () => {
+    const { branches, activeBranchId } = get();
+    return branches.find((b) => b.id === activeBranchId) ?? null;
+  },
+
   activeBlueprint: () => {
-    const { nodes, activeNodeId } = get();
-    return nodes.find((n) => n.id === activeNodeId)?.blueprint ?? null;
+    const branch = get().activeBranch();
+    if (!branch) return null;
+    return branch.nodes.find((n) => n.id === branch.activeNodeId)?.blueprint ?? null;
   },
 
   setPrompt: (prompt) => set({ prompt }),
 
-  addNode: (blueprint, label, parentId = null) => {
+  addNode: (blueprint, label) => {
     const state = get();
-    const resolvedParentId = parentId ?? state.activeNodeId;
+    const branch = state.activeBranch();
+    if (!branch) {
+      throw new Error('No active branch');
+    }
     const node: TimelineNode = {
       id: crypto.randomUUID(),
       blueprint,
-      parentId: resolvedParentId,
+      parentId: branch.activeNodeId,
       label,
       timestamp: Date.now(),
     };
-
-    // Compute diff if there's a parent
-    const newDiffs = [...state.diffs];
-    if (resolvedParentId) {
-      const parentNode = state.nodes.find((n) => n.id === resolvedParentId);
-      if (parentNode) {
-        const entries = diffBlueprints(parentNode.blueprint, blueprint);
-        if (entries.length > 0) {
-          const diff: BlueprintDiff = {
-            id: crypto.randomUUID(),
-            sourceNodeId: resolvedParentId,
-            targetNodeId: node.id,
-            entries,
-            label,
-          };
-          newDiffs.push(diff);
-        }
-      }
-    }
-
-    set({
-      nodes: [...state.nodes, node],
-      activeNodeId: node.id,
-      diffs: newDiffs,
-    });
+    set((s) => ({
+      branches: s.branches.map((b) =>
+        b.id === s.activeBranchId
+          ? { ...b, nodes: [...b.nodes, node], activeNodeId: node.id }
+          : b
+      ),
+    }));
     return node;
   },
 
-  setActiveNode: (id) => set({ activeNodeId: id }),
+  setActiveNode: (nodeId) => {
+    set((s) => {
+      for (const branch of s.branches) {
+        const found = branch.nodes.find((n) => n.id === nodeId);
+        if (found) {
+          return {
+            activeBranchId: branch.id,
+            branches: s.branches.map((b) =>
+              b.id === branch.id ? { ...b, activeNodeId: nodeId } : b
+            ),
+          };
+        }
+      }
+      return s;
+    });
+  },
+
+  setActiveBranch: (branchId) => set({ activeBranchId: branchId }),
 
   patchBlueprint: (patch, label = 'Manual edit') => {
     const state = get();
@@ -148,26 +149,72 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   updateLiveBlueprint: (patch) => {
-    set((state) => {
-      const idx = state.nodes.findIndex((n) => n.id === state.activeNodeId);
-      if (idx === -1) return state;
-      const updated = deepMerge(state.nodes[idx].blueprint, patch);
-      const nodes = [...state.nodes];
-      nodes[idx] = { ...nodes[idx], blueprint: updated };
-      return { nodes };
+    set((s) => {
+      const branchIdx = s.branches.findIndex((b) => b.id === s.activeBranchId);
+      if (branchIdx === -1) return s;
+      const branch = s.branches[branchIdx];
+      const nodeIdx = branch.nodes.findIndex((n) => n.id === branch.activeNodeId);
+      if (nodeIdx === -1) return s;
+      const updated = deepMerge(branch.nodes[nodeIdx].blueprint, patch);
+      const newNodes = [...branch.nodes];
+      newNodes[nodeIdx] = { ...newNodes[nodeIdx], blueprint: updated };
+      const newBranches = [...s.branches];
+      newBranches[branchIdx] = { ...branch, nodes: newNodes };
+      return { branches: newBranches };
     });
+  },
+
+  branchFrom: (nodeId, sourceBranchId) => {
+    const state = get();
+    if (state.branches.length >= 4) return null;
+    const sourceBranch = state.branches.find((b) => b.id === sourceBranchId);
+    if (!sourceBranch) return null;
+    const sourceNode = sourceBranch.nodes.find((n) => n.id === nodeId);
+    if (!sourceNode) return null;
+
+    const newNode: TimelineNode = {
+      id: crypto.randomUUID(),
+      blueprint: { ...sourceNode.blueprint, id: crypto.randomUUID() },
+      parentId: nodeId,
+      label: 'Branch start',
+      timestamp: Date.now(),
+    };
+    const newBranch: Branch = {
+      id: crypto.randomUUID(),
+      label: `Branch ${state.branches.length}`,
+      nodes: [newNode],
+      activeNodeId: newNode.id,
+      collapsed: false,
+      sourceNodeId: nodeId,
+      sourceBranchId: sourceBranchId,
+    };
+    set((s) => ({
+      branches: [...s.branches, newBranch],
+      activeBranchId: newBranch.id,
+    }));
+    return newBranch;
+  },
+
+  renameBranch: (branchId, label) => {
+    set((s) => ({
+      branches: s.branches.map((b) =>
+        b.id === branchId ? { ...b, label } : b
+      ),
+    }));
+  },
+
+  toggleBranchCollapse: (branchId) => {
+    set((s) => ({
+      branches: s.branches.map((b) =>
+        b.id === branchId ? { ...b, collapsed: !b.collapsed } : b
+      ),
+    }));
   },
 
   setIsGenerating: (val) => set({ isGenerating: val }),
 
   resetToFixture: () => {
-    const node: TimelineNode = {
-      id: crypto.randomUUID(),
-      blueprint: { ...theFool, id: crypto.randomUUID() },
-      parentId: null,
-      label: 'Reset',
-      timestamp: Date.now(),
-    };
-    set({ nodes: [node], activeNodeId: node.id, diffs: [] });
+    const branch = makeInitialBranch();
+    set({ branches: [branch], activeBranchId: branch.id });
   },
 }));

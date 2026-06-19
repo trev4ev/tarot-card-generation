@@ -109,3 +109,13 @@ export type ElementRef =
   | { type: 'footer' }
   | { type: 'frame' }
   | { type: 'background' };
+
+export type Branch = {
+  id: string;
+  label: string;
+  nodes: TimelineNode[];
+  activeNodeId: string;
+  collapsed: boolean;
+  sourceNodeId: string | null;
+  sourceBranchId: string | null;
+};
