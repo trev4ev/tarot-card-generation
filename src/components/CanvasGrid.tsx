@@ -301,6 +301,15 @@ function BranchCard({
           height={CARD_H}
           ref={(node) => { stageRef.current = node; }}
         />
+        {!isActive && (
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'rgba(0,0,0,0.45)',
+            pointerEvents: 'none',
+            transition: 'opacity 0.15s',
+          }} />
+        )}
       </div>
 
       {/* Branch label overlay */}
