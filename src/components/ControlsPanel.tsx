@@ -239,7 +239,7 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
   const updateSymbol = useStore((s) => s.updateSymbol);
   const addSymbol = useStore((s) => s.addSymbol);
   const removeSymbol = useStore((s) => s.removeSymbol);
-  const bp = useStore((s) => s.activeBlueprint());
+  const bp = useStore((s) => s.liveBlueprint ?? s.activeBlueprint());
   const [error, setError] = useState<string | null>(null);
 
   // Accordion: only one section open at a time.

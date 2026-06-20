@@ -87,6 +87,9 @@ export interface StoreState {
   isGenerating: boolean;
   prompt: string;
 
+  // Live preview blueprint (set during slider/color drag; cleared on commit or node switch)
+  liveBlueprint: Blueprint | null;
+
   // Derived selectors
   activeBranch: () => Branch | null;
   activeBlueprint: () => Blueprint | null;
@@ -125,6 +128,7 @@ export const useStore = create<StoreState>((set, get) => ({
   activeBranchId: '',
   isGenerating: false,
   prompt: '',
+  liveBlueprint: null,
   selectedElement: null,
 
   activeBranch: () => {
@@ -191,6 +195,7 @@ export const useStore = create<StoreState>((set, get) => ({
         const found = branch.nodes.find((n) => n.id === nodeId);
         if (found) {
           return {
+            liveBlueprint: null,
             activeBranchId: branch.id,
             branches: s.branches.map((b) =>
               b.id === branch.id ? { ...b, activeNodeId: nodeId } : b
@@ -202,29 +207,22 @@ export const useStore = create<StoreState>((set, get) => ({
     });
   },
 
-  setActiveBranch: (branchId) => set({ activeBranchId: branchId, selectedElement: null }),
+  setActiveBranch: (branchId) => set({ activeBranchId: branchId, liveBlueprint: null, selectedElement: null }),
 
   patchBlueprint: (patch, label = 'Manual edit') => {
     const state = get();
     const current = state.activeBlueprint();
     if (!current) return;
     const patched = { ...deepMerge(current, patch), id: crypto.randomUUID() };
+    set({ liveBlueprint: null });
     state.addNode(patched, label);
   },
 
   updateLiveBlueprint: (patch) => {
     set((s) => {
-      const branchIdx = s.branches.findIndex((b) => b.id === s.activeBranchId);
-      if (branchIdx === -1) return s;
-      const branch = s.branches[branchIdx];
-      const nodeIdx = branch.nodes.findIndex((n) => n.id === branch.activeNodeId);
-      if (nodeIdx === -1) return s;
-      const updated = deepMerge(branch.nodes[nodeIdx].blueprint, patch);
-      const newNodes = [...branch.nodes];
-      newNodes[nodeIdx] = { ...newNodes[nodeIdx], blueprint: updated };
-      const newBranches = [...s.branches];
-      newBranches[branchIdx] = { ...branch, nodes: newNodes };
-      return { branches: newBranches };
+      const base = s.liveBlueprint ?? s.activeBlueprint();
+      if (!base) return s;
+      return { liveBlueprint: deepMerge(base, patch) };
     });
   },
 
@@ -279,7 +277,7 @@ export const useStore = create<StoreState>((set, get) => ({
   setIsGenerating: (val) => set({ isGenerating: val }),
 
   reset: () => {
-    set({ branches: [], activeBranchId: '', selectedElement: null, prompt: '' });
+    set({ branches: [], activeBranchId: '', liveBlueprint: null, selectedElement: null, prompt: '' });
   },
 
   updateSymbol: (symbolId, patch) => {
@@ -352,6 +350,7 @@ export const useStore = create<StoreState>((set, get) => ({
       const idx = branch.nodes.findIndex((n) => n.id === branch.activeNodeId);
       if (idx <= 0) return s;
       return {
+        liveBlueprint: null,
         branches: s.branches.map((b) =>
           b.id === s.activeBranchId
             ? { ...b, activeNodeId: branch.nodes[idx - 1].id }
@@ -368,6 +367,7 @@ export const useStore = create<StoreState>((set, get) => ({
       const idx = branch.nodes.findIndex((n) => n.id === branch.activeNodeId);
       if (idx >= branch.nodes.length - 1) return s;
       return {
+        liveBlueprint: null,
         branches: s.branches.map((b) =>
           b.id === s.activeBranchId
             ? { ...b, activeNodeId: branch.nodes[idx + 1].id }

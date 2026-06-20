@@ -330,6 +330,7 @@ function BranchCard({
 export function CanvasGrid() {
   const branches = useStore((s) => s.branches);
   const activeBranchId = useStore((s) => s.activeBranchId);
+  const liveBlueprint = useStore((s) => s.liveBlueprint);
   const setActiveBranch = useStore((s) => s.setActiveBranch);
   const selectedElement = useStore((s) => s.selectedElement);
   const setSelectedElement = useStore((s) => s.setSelectedElement);
@@ -355,11 +356,12 @@ export function CanvasGrid() {
         const activeNode = branch.nodes.find((n) => n.id === branch.activeNodeId);
         if (!activeNode) return null;
         const isActive = branch.id === activeBranchId;
+        const displayBlueprint = isActive && liveBlueprint ? liveBlueprint : activeNode.blueprint;
         return (
           <div key={branch.id} style={{ flex: 1, minWidth: 0, height: '100%' }}>
             <BranchCard
               branch={branch}
-              blueprint={activeNode.blueprint}
+              blueprint={displayBlueprint}
               isActive={isActive}
               slotIndex={i}
               selectedElement={isActive ? selectedElement : null}
