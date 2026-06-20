@@ -570,6 +570,12 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
               onLiveChange={(v) => livePalette('text', v)}
               onChange={(v) => patchPalette('text', v)}
             />
+            <ColorRow
+              label="Frame color"
+              value={bp.frame.color ?? bp.palette.border}
+              onLiveChange={(v) => liveFrame('color', v)}
+              onChange={(v) => patchFrame('color', v)}
+            />
           </Section>
 
           {/* Symbols */}
