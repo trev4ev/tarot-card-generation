@@ -7,30 +7,38 @@ export function App() {
     <div
       style={{
         display: 'flex',
+        flexDirection: 'column',
         height: '100vh',
         width: '100vw',
         overflow: 'hidden',
         background: '#1a1a2e',
       }}
     >
-      {/* Left: Controls */}
-      <ControlsPanel />
-
-      {/* Center: Canvas Grid */}
-      <main
+      {/* Top: Controls (left) + Canvas grid (center) */}
+      <div
         style={{
           flex: 1,
-          overflow: 'hidden',
-          background: '#0f0f1e',
           display: 'flex',
-          alignItems: 'stretch',
-          justifyContent: 'stretch',
+          overflow: 'hidden',
+          minHeight: 0,
         }}
       >
-        <CanvasGrid />
-      </main>
+        <ControlsPanel />
+        <main
+          style={{
+            flex: 1,
+            overflow: 'hidden',
+            background: '#0f0f1e',
+            display: 'flex',
+            alignItems: 'stretch',
+            justifyContent: 'stretch',
+          }}
+        >
+          <CanvasGrid />
+        </main>
+      </div>
 
-      {/* Right: Timeline */}
+      {/* Bottom: Timeline spanning full width */}
       <TimelinePanel />
     </div>
   );
