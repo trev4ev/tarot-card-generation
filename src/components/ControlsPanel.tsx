@@ -273,14 +273,6 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
     }
   }
 
-  function patch<K extends keyof Blueprint>(
-    key: K,
-    value: Blueprint[K],
-    label: string,
-  ) {
-    patchBlueprint({ [key]: value } as Partial<Blueprint>, label);
-  }
-
   function patchPalette(key: keyof Blueprint['palette'], value: string) {
     patchBlueprint({ palette: { [key]: value } as Partial<Blueprint['palette']> }, `Palette: ${key}`);
   }
