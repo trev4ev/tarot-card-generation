@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import type { Blueprint, TimelineNode, Branch, ElementRef, SymbolDef, DiffEntry } from '../types/blueprint';
-import { theFool } from '../fixtures/cards';
+
+// Maximum number of canvases / branches shown side by side.
+export const MAX_BRANCHES = 3;
 
 // ── DeepPartial ──────────────────────────────────────────────────────────────
 type DeepPartial<T> = T extends object
@@ -95,6 +97,7 @@ export interface StoreState {
 
   // Actions
   setPrompt: (prompt: string) => void;
+  startCard: (blueprint: Blueprint, label: string) => void;
   addNode: (blueprint: Blueprint, label: string) => TimelineNode;
   setActiveNode: (nodeId: string) => void;
   setActiveBranch: (branchId: string) => void;
@@ -104,7 +107,7 @@ export interface StoreState {
   renameBranch: (branchId: string, label: string) => void;
   toggleBranchCollapse: (branchId: string) => void;
   setIsGenerating: (val: boolean) => void;
-  resetToFixture: () => void;
+  reset: () => void;
   updateSymbol: (symbolId: string, patch: Partial<SymbolDef>) => void;
   addSymbol: (sym: SymbolDef) => void;
   removeSymbol: (symbolId: string) => void;
@@ -114,32 +117,12 @@ export interface StoreState {
   redo: () => void;
 }
 
-// ── Initial state factory ─────────────────────────────────────────────────────
-function makeInitialBranch(): Branch {
-  const node: TimelineNode = {
-    id: crypto.randomUUID(),
-    blueprint: { ...theFool, id: crypto.randomUUID() },
-    parentId: null,
-    label: 'Initial',
-    timestamp: Date.now(),
-  };
-  return {
-    id: crypto.randomUUID(),
-    label: 'Main',
-    nodes: [node],
-    activeNodeId: node.id,
-    collapsed: false,
-    sourceNodeId: null,
-    sourceBranchId: null,
-  };
-}
-
-const initialBranch = makeInitialBranch();
-
 // ── Store ────────────────────────────────────────────────────────────────────
+// The app starts with no cards — the user generates their first card from the
+// onboarding screen, which creates the initial branch via `startCard`.
 export const useStore = create<StoreState>((set, get) => ({
-  branches: [initialBranch],
-  activeBranchId: initialBranch.id,
+  branches: [],
+  activeBranchId: '',
   isGenerating: false,
   prompt: '',
   selectedElement: null,
@@ -158,6 +141,26 @@ export const useStore = create<StoreState>((set, get) => ({
   setSelectedElement: (el) => set({ selectedElement: el }),
 
   setPrompt: (prompt) => set({ prompt }),
+
+  startCard: (blueprint, label) => {
+    const node: TimelineNode = {
+      id: crypto.randomUUID(),
+      blueprint: { ...blueprint, id: crypto.randomUUID() },
+      parentId: null,
+      label,
+      timestamp: Date.now(),
+    };
+    const branch: Branch = {
+      id: crypto.randomUUID(),
+      label: 'Main',
+      nodes: [node],
+      activeNodeId: node.id,
+      collapsed: false,
+      sourceNodeId: null,
+      sourceBranchId: null,
+    };
+    set({ branches: [branch], activeBranchId: branch.id, selectedElement: null });
+  },
 
   addNode: (blueprint, label) => {
     const state = get();
@@ -227,7 +230,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
   branchFrom: (nodeId, sourceBranchId) => {
     const state = get();
-    if (state.branches.length >= 4) return null;
+    if (state.branches.length >= MAX_BRANCHES) return null;
     const sourceBranch = state.branches.find((b) => b.id === sourceBranchId);
     if (!sourceBranch) return null;
     const sourceNode = sourceBranch.nodes.find((n) => n.id === nodeId);
@@ -275,9 +278,8 @@ export const useStore = create<StoreState>((set, get) => ({
 
   setIsGenerating: (val) => set({ isGenerating: val }),
 
-  resetToFixture: () => {
-    const branch = makeInitialBranch();
-    set({ branches: [branch], activeBranchId: branch.id, selectedElement: null });
+  reset: () => {
+    set({ branches: [], activeBranchId: '', selectedElement: null, prompt: '' });
   },
 
   updateSymbol: (symbolId, patch) => {

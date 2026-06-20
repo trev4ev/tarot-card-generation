@@ -62,37 +62,41 @@ const summaryStyle: React.CSSProperties = {
   justifyContent: 'space-between',
 };
 
+// Accordion section: clicking the header opens this section and closes all the
+// others. The currently open section is controlled by the parent panel.
 function Section({
+  id,
   title,
-  open = true,
+  openSection,
+  onToggle,
   children,
 }: {
+  id: string;
   title: string;
-  open?: boolean;
+  openSection: string | null;
+  onToggle: (id: string | null) => void;
   children: React.ReactNode;
 }) {
-  const [isOpen, setIsOpen] = useState(open);
+  const isOpen = openSection === id;
   return (
-    <details
-      open={isOpen}
-      onToggle={(e) => setIsOpen((e.currentTarget as HTMLDetailsElement).open)}
-      style={panelStyle}
-    >
-      <summary style={summaryStyle}>
+    <div style={panelStyle}>
+      <div style={summaryStyle} onClick={() => onToggle(isOpen ? null : id)}>
         {title}
         <span style={{ transition: 'transform 0.15s', display: 'inline-block', transform: isOpen ? 'none' : 'rotate(-90deg)' }}>▾</span>
-      </summary>
-      <div
-        style={{
-          padding: '4px 16px 12px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '10px',
-        }}
-      >
-        {children}
       </div>
-    </details>
+      {isOpen && (
+        <div
+          style={{
+            padding: '4px 16px 12px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px',
+          }}
+        >
+          {children}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -231,7 +235,7 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
   const addNode = useStore((s) => s.addNode);
   const patchBlueprint = useStore((s) => s.patchBlueprint);
   const updateLiveBlueprint = useStore((s) => s.updateLiveBlueprint);
-  const resetToFixture = useStore((s) => s.resetToFixture);
+  const reset = useStore((s) => s.reset);
   const selectedElement = useStore((s) => s.selectedElement);
   const setSelectedElement = useStore((s) => s.setSelectedElement);
   const updateSymbol = useStore((s) => s.updateSymbol);
@@ -239,6 +243,23 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
   const removeSymbol = useStore((s) => s.removeSymbol);
   const bp = useStore((s) => s.activeBlueprint());
   const [error, setError] = useState<string | null>(null);
+
+  // Accordion: only one section open at a time.
+  const [openSection, setOpenSection] = useState<string | null>('AI Generation');
+
+  // Clicking an element on the canvas expands its section and closes the rest.
+  useEffect(() => {
+    if (!selectedElement) return;
+    const sectionForType: Record<string, string> = {
+      symbol: 'Symbols',
+      title: 'Title',
+      footer: 'Footer',
+      frame: 'Frame',
+      background: 'Background',
+    };
+    const section = sectionForType[selectedElement.type];
+    if (section) setOpenSection(section);
+  }, [selectedElement]);
 
   async function handleGenerate() {
     if (!prompt.trim() || isGenerating) return;
@@ -277,6 +298,9 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
   function patchFooter(key: keyof Blueprint['footer'], value: Blueprint['footer'][typeof key]) {
     patchBlueprint({ footer: { [key]: value } as Partial<Blueprint['footer']> }, `Footer: ${key}`);
   }
+  function patchIdentity(key: keyof Blueprint['identity'], value: Blueprint['identity'][typeof key]) {
+    patchBlueprint({ identity: { [key]: value } as Partial<Blueprint['identity']> }, `Title: ${key}`);
+  }
 
   function livePalette(key: keyof Blueprint['palette'], value: string) {
     updateLiveBlueprint({ palette: { [key]: value } as Partial<Blueprint['palette']> });
@@ -292,6 +316,9 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
   }
   function liveFooter(key: keyof Blueprint['footer'], value: Blueprint['footer'][typeof key]) {
     updateLiveBlueprint({ footer: { [key]: value } as Partial<Blueprint['footer']> });
+  }
+  function liveIdentity(key: keyof Blueprint['identity'], value: Blueprint['identity'][typeof key]) {
+    updateLiveBlueprint({ identity: { [key]: value } as Partial<Blueprint['identity']> });
   }
 
   function liveSymbol(symbolId: string, patch: Partial<SymbolDef>) {
@@ -319,13 +346,6 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
     selectedElement?.type === 'symbol' && bp
       ? bp.symbols.find((s) => s.id === selectedElement.symbolId) ?? null
       : null;
-
-  const selLabel =
-    selectedElement?.type === 'title' ? 'Title'
-    : selectedElement?.type === 'footer' ? 'Footer'
-    : selectedElement?.type === 'frame' ? 'Frame'
-    : selectedElement?.type === 'background' ? 'Background'
-    : null;
 
   // ── Collapsed strip ───────────────────────────────────────────────────────
   if (!open) {
@@ -407,12 +427,13 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
         </button>
       </div>
 
-      {/* Selection */}
-      {selectedElement && (
+      {/* Selected symbol editor (symbols are edited inline; other elements open
+          their matching section below) */}
+      {selectedSym && (
         <div style={{ background: '#1a1a3e', borderBottom: '1px solid #2a2a4e', padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{ fontSize: '11px', fontWeight: 600, color: '#c4b5fd', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              {selectedSym ? `Symbol: ${selectedSym.kind}` : `Selected: ${selLabel}`}
+              {`Symbol: ${selectedSym.kind}`}
             </span>
             <button
               onClick={() => setSelectedElement(null)}
@@ -493,23 +514,17 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
               </button>
             </>
           )}
-
-          {selLabel && (
-            <span style={{ fontSize: '11px', color: '#666' }}>
-              Edit in the {selLabel} section below
-            </span>
-          )}
         </div>
       )}
 
       {/* AI Generation */}
-      <Section title="AI Generation">
+      <Section id="AI Generation" title="AI Generation" openSection={openSection} onToggle={setOpenSection}>
         <Row label="Prompt">
           <textarea
             rows={3}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Describe a tarot card…"
+            placeholder="e.g. The Sun — radiant joy, warmth, and new beginnings in gold and amber"
             style={{ resize: 'vertical', width: '100%' }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void handleGenerate();
@@ -540,7 +555,7 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
       {bp && (
         <>
           {/* Mood */}
-          <Section title="Mood">
+          <Section id="Mood" title="Mood" openSection={openSection} onToggle={setOpenSection}>
             <Slider
               label="Mood"
               value={bp.mood} min={0} max={100}
@@ -555,7 +570,7 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
           </Section>
 
           {/* Palette */}
-          <Section title="Palette">
+          <Section id="Palette" title="Palette" openSection={openSection} onToggle={setOpenSection}>
             <ColorRow
               label="Background"
               value={bp.palette.background}
@@ -589,7 +604,7 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
           </Section>
 
           {/* Symbols */}
-          <Section title="Symbols">
+          <Section id="Symbols" title="Symbols" openSection={openSection} onToggle={setOpenSection}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
               {SYMBOL_PRESETS.map(({ kind, label }) => (
                 <button
@@ -617,7 +632,7 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
           </Section>
 
           {/* Frame */}
-          <Section title="Frame" open={false}>
+          <Section id="Frame" title="Frame" openSection={openSection} onToggle={setOpenSection}>
             <Sel
               label="Style"
               value={bp.frame.style}
@@ -652,8 +667,14 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
             />
           </Section>
 
-          {/* Typography */}
-          <Section title="Typography" open={false}>
+          {/* Title */}
+          <Section id="Title" title="Title" openSection={openSection} onToggle={setOpenSection}>
+            <TextRow
+              label="Title text"
+              value={bp.identity.name}
+              onLiveChange={(v) => liveIdentity('name', v)}
+              onChange={(v) => patchIdentity('name', v)}
+            />
             <Sel
               label="Font family"
               value={bp.typography.fontFamily}
@@ -700,7 +721,7 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
           </Section>
 
           {/* Background */}
-          <Section title="Background" open={false}>
+          <Section id="Background" title="Background" openSection={openSection} onToggle={setOpenSection}>
             <ColorRow
               label="Base color"
               value={bp.background.baseColor}
@@ -729,7 +750,7 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
           </Section>
 
           {/* Footer */}
-          <Section title="Footer" open={false}>
+          <Section id="Footer" title="Footer" openSection={openSection} onToggle={setOpenSection}>
             <Row label="Visible">
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
                 <input
@@ -767,7 +788,7 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
           </Section>
 
           {/* Card info (read-only) */}
-          <Section title="Card" open={false}>
+          <Section id="Card" title="Card" openSection={openSection} onToggle={setOpenSection}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <p style={{ fontSize: '15px', fontWeight: 700, color: '#e0d8ff' }}>
                 {bp.identity.name}
@@ -788,8 +809,8 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
       <div style={{ padding: '12px 16px', marginTop: 'auto', borderTop: '1px solid #2a2a4e' }}>
         <button
           onClick={() => {
-            if (window.confirm('Reset to fixture? All branches and generations will be lost.')) {
-              resetToFixture();
+            if (window.confirm('Start over? All branches and generations will be lost.')) {
+              reset();
             }
           }}
           style={{
@@ -803,7 +824,7 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
             cursor: 'pointer',
           }}
         >
-          Reset to Fixture
+          Start Over
         </button>
       </div>
     </aside>

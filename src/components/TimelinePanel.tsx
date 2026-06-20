@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useStore } from '../store';
+import { useStore, MAX_BRANCHES } from '../store';
 import { rendererStub } from '../renderer/stub';
 import { SLOT_COLORS } from '../slotColors';
 import type { Branch, TimelineNode } from '../types/blueprint';
@@ -406,7 +406,7 @@ export function TimelinePanel({ open, onToggle }: { open: boolean; onToggle: () 
   const branches = useStore((s) => s.branches);
   const activeBranchId = useStore((s) => s.activeBranchId);
 
-  const canBranch = branches.length < 4;
+  const canBranch = branches.length < MAX_BRANCHES;
   const totalNodes = branches.reduce((acc, b) => acc + b.nodes.length, 0);
 
   // ── Collapsed strip ─────────────────────────────────────────────────────────

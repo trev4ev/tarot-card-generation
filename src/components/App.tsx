@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { CanvasGrid } from './CanvasGrid';
 import { ControlsPanel } from './ControlsPanel';
 import { TimelinePanel } from './TimelinePanel';
+import { Onboarding } from './Onboarding';
 import { useStore } from '../store';
 
 export function App() {
@@ -9,6 +10,7 @@ export function App() {
   const [bottomOpen, setBottomOpen] = useState(true);
   const undo = useStore((s) => s.undo);
   const redo = useStore((s) => s.redo);
+  const hasCard = useStore((s) => s.branches.length > 0);
 
   useEffect(() => {
     function handler(e: KeyboardEvent) {
@@ -19,6 +21,12 @@ export function App() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [undo, redo]);
+
+  // Before the first card exists, show only the prompt input. Generating the
+  // first card creates the initial branch and reveals the full editor.
+  if (!hasCard) {
+    return <Onboarding />;
+  }
 
   return (
     <div

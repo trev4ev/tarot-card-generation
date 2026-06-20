@@ -81,37 +81,6 @@ function drawSelectionOnLayer(
   }
 }
 
-// ── EmptySlot ──────────────────────────────────────────────────────────────────
-
-function EmptySlot({ slot }: { slot: number }) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: '100%',
-        height: '100%',
-        border: '1px dashed #252545',
-        borderRadius: '10px',
-        textAlign: 'center',
-        padding: '24px',
-        boxSizing: 'border-box',
-        gap: '10px',
-      }}
-    >
-      <div style={{ fontSize: '28px', color: '#2a2a4e', lineHeight: 1 }}>⊕</div>
-      <div style={{ fontSize: '11px', fontWeight: 600, color: '#3a3a5e', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-        Branch {slot + 1}
-      </div>
-      <div style={{ fontSize: '11px', color: '#2e2e50', lineHeight: 1.6, maxWidth: '120px' }}>
-        Branch from a timeline node to open this slot
-      </div>
-    </div>
-  );
-}
-
 // ── BranchCard ─────────────────────────────────────────────────────────────────
 
 interface BranchCardProps {
@@ -370,14 +339,14 @@ export function CanvasGrid() {
   const updateLiveBlueprint = useStore((s) => s.updateLiveBlueprint);
   const updateSymbol = useStore((s) => s.updateSymbol);
 
-  const slots = Array.from({ length: 4 }, (_, i) => branches[i] ?? null);
-
+  // Only render canvases for branches that actually exist — unused canvases stay
+  // hidden (like the timeline rows) and the active ones sit side by side.
   return (
     <div
       style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gridTemplateRows: '1fr 1fr',
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'stretch',
         width: '100%',
         height: '100%',
         gap: '12px',
@@ -385,28 +354,24 @@ export function CanvasGrid() {
         boxSizing: 'border-box',
       }}
     >
-      {slots.map((branch, i) => {
-        if (!branch) {
-          return <EmptySlot key={`empty-${i}`} slot={i} />;
-        }
+      {branches.map((branch, i) => {
         const activeNode = branch.nodes.find((n) => n.id === branch.activeNodeId);
-        if (!activeNode) {
-          return <EmptySlot key={branch.id} slot={i} />;
-        }
+        if (!activeNode) return null;
         const isActive = branch.id === activeBranchId;
         return (
-          <BranchCard
-            key={branch.id}
-            branch={branch}
-            blueprint={activeNode.blueprint}
-            isActive={isActive}
-            slotIndex={i}
-            selectedElement={isActive ? selectedElement : null}
-            onActivate={() => setActiveBranch(branch.id)}
-            onElementClick={(el) => setSelectedElement(el)}
-            onSymbolDragLive={(symbols) => updateLiveBlueprint({ symbols })}
-            onSymbolDragCommit={(symbolId, x, y) => updateSymbol(symbolId, { x, y })}
-          />
+          <div key={branch.id} style={{ flex: 1, minWidth: 0, height: '100%' }}>
+            <BranchCard
+              branch={branch}
+              blueprint={activeNode.blueprint}
+              isActive={isActive}
+              slotIndex={i}
+              selectedElement={isActive ? selectedElement : null}
+              onActivate={() => setActiveBranch(branch.id)}
+              onElementClick={(el) => setSelectedElement(el)}
+              onSymbolDragLive={(symbols) => updateLiveBlueprint({ symbols })}
+              onSymbolDragCommit={(symbolId, x, y) => updateSymbol(symbolId, { x, y })}
+            />
+          </div>
         );
       })}
     </div>
