@@ -23,7 +23,7 @@ const NODE_W = 96;
 function HorizontalNodeCard({
   node,
   isActive,
-  isActiveBranch,
+  isActiveBranch: _isActiveBranch,
   isSelected,
   showBranchButton,
   slotColor,
