@@ -3,6 +3,40 @@ import { useStore, MAX_BRANCHES } from '../store';
 import { SLOT_COLORS } from '../slotColors';
 import type { Branch, TimelineNode } from '../types/blueprint';
 
+const HEX_LABEL_RE = /#[0-9a-fA-F]{6}/g;
+
+function renderNodeLabel(label: string): React.ReactNode {
+  HEX_LABEL_RE.lastIndex = 0;
+  if (!HEX_LABEL_RE.test(label)) return label;
+  HEX_LABEL_RE.lastIndex = 0;
+  const parts: React.ReactNode[] = [];
+  let last = 0;
+  let match: RegExpExecArray | null;
+  while ((match = HEX_LABEL_RE.exec(label)) !== null) {
+    if (match.index > last) parts.push(label.slice(last, match.index));
+    const hex = match[0];
+    parts.push(
+      <span
+        key={match.index}
+        style={{
+          display: 'inline-block',
+          width: 8,
+          height: 8,
+          borderRadius: '50%',
+          background: hex,
+          border: '1px solid rgba(255,255,255,0.2)',
+          verticalAlign: 'middle',
+          marginLeft: 2,
+          flexShrink: 0,
+        }}
+      />
+    );
+    last = match.index + hex.length;
+  }
+  if (last < label.length) parts.push(label.slice(last));
+  return parts;
+}
+
 // ── HorizontalNodeCard ────────────────────────────────────────────────────────
 
 interface HorizontalNodeCardProps {
@@ -118,7 +152,7 @@ function HorizontalNodeCard({
             transition: 'color 0.12s',
           }}
         >
-          {node.label}
+          {renderNodeLabel(node.label)}
         </div>
       </div>
 
@@ -386,6 +420,7 @@ function HorizontalBranchRow({ branch, slotIndex, isActiveBranch, canBranch }: H
       {/* Right: horizontally scrollable node list */}
       <div
         ref={scrollContainerRef}
+        className="timeline-nodes-scroll"
         style={{
           flex: 1,
           overflowX: 'auto',

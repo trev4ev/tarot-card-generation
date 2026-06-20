@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useStore } from '../store';
 import { aiClient } from '../ai';
 import type {
@@ -158,34 +159,111 @@ function ColorRow({
   onChange: (v: string) => void; onLiveChange?: (v: string) => void;
 }) {
   const [local, setLocal] = useState(value);
-  const ref = useRef<HTMLInputElement>(null);
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const swatchRef = useRef<HTMLButtonElement>(null);
+
   useEffect(() => { setLocal(value); }, [value]);
 
-  // The color input fires `input` continuously while dragging, but `change`
-  // only once when the picker is committed/closed. Drag previews via
-  // onLiveChange (no history); the single `change` records one history node.
   useEffect(() => {
-    const el = ref.current;
+    const el = inputRef.current;
     if (!el) return;
-    const handler = () => onChange(el.value);
+    const handler = () => { onChange(el.value); };
     el.addEventListener('change', handler);
     return () => el.removeEventListener('change', handler);
   }, [onChange]);
 
+  function toggleOpen() {
+    if (open) {
+      setOpen(false);
+    } else {
+      if (swatchRef.current) {
+        const rect = swatchRef.current.getBoundingClientRect();
+        setPos({ top: rect.bottom + 6, left: rect.left });
+      }
+      setOpen(true);
+    }
+  }
+
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-      <input
-        ref={ref}
-        type="color" value={local}
-        onChange={(e) => {
-          const v = e.target.value;
-          setLocal(v);
-          onLiveChange?.(v);
+      <button
+        ref={swatchRef}
+        onClick={toggleOpen}
+        title={label}
+        style={{
+          width: 22,
+          height: 22,
+          borderRadius: '50%',
+          background: local,
+          border: `2px solid rgba(255,255,255,${open ? 0.4 : 0.15})`,
+          cursor: 'pointer',
+          flexShrink: 0,
+          padding: 0,
+          boxShadow: open ? '0 0 0 2px #7c6f9f' : 'none',
+          transition: 'box-shadow 0.15s, border-color 0.15s',
         }}
-        style={{ width: 30, height: 26, padding: '1px', cursor: 'pointer', borderRadius: 3 }}
       />
       <span style={{ fontSize: '11px', color: '#888', flex: 1 }}>{label}</span>
-      <span style={{ fontSize: '10px', color: '#555', fontFamily: 'monospace' }}>{local}</span>
+      {open && pos && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            top: pos.top,
+            left: pos.left,
+            zIndex: 9999,
+            background: '#1a1832',
+            border: '1px solid #3a3458',
+            borderRadius: 8,
+            padding: '10px 12px',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.7)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+            minWidth: 180,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 11, color: '#9c8fc0', fontWeight: 600 }}>{label}</span>
+            <button
+              onClick={() => setOpen(false)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#666',
+                cursor: 'pointer',
+                fontSize: 16,
+                lineHeight: 1,
+                padding: '0 2px',
+              }}
+            >
+              ×
+            </button>
+          </div>
+          <input
+            ref={inputRef}
+            type="color"
+            value={local}
+            onChange={(e) => {
+              const v = e.target.value;
+              setLocal(v);
+              onLiveChange?.(v);
+            }}
+            style={{
+              width: '100%',
+              height: 72,
+              padding: 0,
+              border: 'none',
+              borderRadius: 4,
+              cursor: 'pointer',
+              display: 'block',
+            }}
+          />
+          <div style={{ fontSize: 10, color: '#666', fontFamily: 'monospace', textAlign: 'center' }}>{local}</div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

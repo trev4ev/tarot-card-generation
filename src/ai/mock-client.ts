@@ -63,6 +63,7 @@ export const mockAIClient: AIClient = {
     const base = pickByKeyword(prompt);
     return {
       ...base,
+      symbols: [],
       id: crypto.randomUUID(),
       seed: crypto.randomUUID(),
       illustration: illustrationId,
