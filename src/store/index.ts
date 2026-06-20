@@ -117,6 +117,7 @@ export interface StoreState {
   patchBlueprintOnBranch: (branchId: string, patch: DeepPartial<Blueprint>, label: string) => void;
   transferEdit: (fromBranchId: string, nodeId: string, toBranchId: string) => void;
   insertEditAt: (fromBranchId: string, nodeId: string, toBranchId: string, insertAfterNodeId: string) => void;
+  insertEditsAt: (fromBranchId: string, nodeIds: string[], toBranchId: string, insertAfterNodeId: string) => void;
   undo: () => void;
   redo: () => void;
 }
@@ -345,60 +346,88 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   insertEditAt: (fromBranchId, nodeId, toBranchId, insertAfterNodeId) => {
+    get().insertEditsAt(fromBranchId, [nodeId], toBranchId, insertAfterNodeId);
+  },
+
+  insertEditsAt: (fromBranchId, nodeIds, toBranchId, insertAfterNodeId) => {
     const state = get();
     const fromBranch = state.branches.find((b) => b.id === fromBranchId);
     if (!fromBranch) return;
-    const node = fromBranch.nodes.find((n) => n.id === nodeId);
-    if (!node || !node.parentId) return;
-    const parentNode = fromBranch.nodes.find((n) => n.id === node.parentId);
-    if (!parentNode) return;
-    const diffs = diffBlueprints(parentNode.blueprint, node.blueprint);
-    if (diffs.length === 0) return;
-    const patch = buildPatchFromDiffs(diffs);
+
+    // Sort selected nodes by their position in the source branch
+    const posMap = new Map(fromBranch.nodes.map((n, i) => [n.id, i]));
+    const sortedIds = [...nodeIds]
+      .filter((id) => posMap.has(id))
+      .sort((a, b) => (posMap.get(a) ?? 0) - (posMap.get(b) ?? 0));
+
+    // Build (node, parent) pairs, skipping root nodes (no parent)
+    const pairs: Array<{ node: TimelineNode; parent: TimelineNode }> = [];
+    for (const nodeId of sortedIds) {
+      const node = fromBranch.nodes.find((n) => n.id === nodeId);
+      if (!node || !node.parentId) continue;
+      const parent = fromBranch.nodes.find((n) => n.id === node.parentId);
+      if (!parent) continue;
+      pairs.push({ node, parent });
+    }
+    if (pairs.length === 0) return;
 
     const toBranch = state.branches.find((b) => b.id === toBranchId);
     if (!toBranch) return;
     const insertAfterIdx = toBranch.nodes.findIndex((n) => n.id === insertAfterNodeId);
     if (insertAfterIdx === -1) return;
 
+    // Build the chain of inserted nodes
     const insertAfterNode = toBranch.nodes[insertAfterIdx];
-    const newNode: TimelineNode = {
-      id: crypto.randomUUID(),
-      blueprint: { ...deepMerge(insertAfterNode.blueprint, patch), id: crypto.randomUUID() },
-      parentId: insertAfterNodeId,
-      label: `↩ from ${fromBranch.label}: ${node.label}`,
-      timestamp: Date.now(),
-    };
+    let prevInserted = insertAfterNode;
+    const insertedNodes: TimelineNode[] = [];
 
-    // Rebase all nodes after the insertion point by replaying their per-step diffs
+    for (const { node, parent } of pairs) {
+      const diffs = diffBlueprints(parent.blueprint, node.blueprint);
+      if (diffs.length === 0) continue;
+      const newNode: TimelineNode = {
+        id: crypto.randomUUID(),
+        blueprint: { ...deepMerge(prevInserted.blueprint, buildPatchFromDiffs(diffs)), id: crypto.randomUUID() },
+        parentId: prevInserted.id,
+        label: `↩ from ${fromBranch.label}: ${node.label}`,
+        timestamp: Date.now(),
+      };
+      insertedNodes.push(newNode);
+      prevInserted = newNode;
+    }
+    if (insertedNodes.length === 0) return;
+
+    // Rebase all nodes that were after the insertion point
     const nodesAfter = toBranch.nodes.slice(insertAfterIdx + 1);
-    let prevNode = newNode;
-    let prevOrigBlueprint = insertAfterNode.blueprint;
-    const rebasedNodes: TimelineNode[] = [newNode];
+    let prevRebase = insertedNodes[insertedNodes.length - 1];
+    let prevOrigBp = insertAfterNode.blueprint;
+    const rebasedNodes: TimelineNode[] = [];
 
     for (const origNode of nodesAfter) {
-      const stepDiffs = diffBlueprints(prevOrigBlueprint, origNode.blueprint);
+      const stepDiffs = diffBlueprints(prevOrigBp, origNode.blueprint);
       const rebased: TimelineNode = {
         id: crypto.randomUUID(),
-        blueprint: { ...deepMerge(prevNode.blueprint, buildPatchFromDiffs(stepDiffs)), id: crypto.randomUUID() },
-        parentId: prevNode.id,
+        blueprint: { ...deepMerge(prevRebase.blueprint, buildPatchFromDiffs(stepDiffs)), id: crypto.randomUUID() },
+        parentId: prevRebase.id,
         label: origNode.label,
         timestamp: origNode.timestamp,
       };
       rebasedNodes.push(rebased);
-      prevNode = rebased;
-      prevOrigBlueprint = origNode.blueprint;
+      prevRebase = rebased;
+      prevOrigBp = origNode.blueprint;
     }
 
     const newNodes = [
       ...toBranch.nodes.slice(0, insertAfterIdx + 1),
+      ...insertedNodes,
       ...rebasedNodes,
     ];
 
-    // Remap activeNodeId if it was one of the rebased nodes
-    const oldToNewId = new Map<string, string>();
-    nodesAfter.forEach((n, i) => oldToNewId.set(n.id, rebasedNodes[i + 1].id));
-    const newActiveNodeId = oldToNewId.get(toBranch.activeNodeId) ?? toBranch.activeNodeId;
+    // Remap activeNodeId for rebased nodes; advance to end if this is the active branch
+    const oldToNew = new Map(nodesAfter.map((n, i) => [n.id, rebasedNodes[i].id]));
+    let newActiveNodeId = oldToNew.get(toBranch.activeNodeId) ?? toBranch.activeNodeId;
+    if (toBranchId === state.activeBranchId) {
+      newActiveNodeId = newNodes[newNodes.length - 1].id;
+    }
 
     set((s) => ({
       branches: s.branches.map((b) =>

@@ -64,13 +64,15 @@ function NodeThumbnail({ node, width, height }: { node: TimelineNode; width: num
 
 interface HorizontalNodeCardProps {
   node: TimelineNode;
-  branchId: string;
   isActive: boolean;
   isActiveBranch: boolean;
+  isSelected: boolean;
   showBranchButton: boolean;
   slotColor: string;
   onSelect: () => void;
   onBranch: () => void;
+  onDragStart: (e: React.DragEvent<HTMLDivElement>) => void;
+  nodeRef: (el: HTMLDivElement | null) => void;
 }
 
 const THUMB_W = 34;
@@ -78,29 +80,39 @@ const THUMB_H = 58;
 
 function HorizontalNodeCard({
   node,
-  branchId,
   isActive,
   isActiveBranch,
+  isSelected,
   showBranchButton,
   slotColor,
   onSelect,
   onBranch,
+  onDragStart,
+  nodeRef,
 }: HorizontalNodeCardProps) {
   const [hovered, setHovered] = useState(false);
   const cardRef = useRef<HTMLDivElement | null>(null);
   const highlight = isActive && isActiveBranch;
-  const showOverlay = hovered && showBranchButton;
+  const showOverlay = hovered && showBranchButton && !isSelected;
 
-  // Scroll into view when this node becomes the active one
   useEffect(() => {
     if (isActive && cardRef.current) {
       cardRef.current.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
     }
   }, [isActive]);
 
+  const borderColor = highlight
+    ? slotColor
+    : isSelected
+    ? '#6ee7b7'
+    : hovered
+    ? '#3a3a5e'
+    : 'transparent';
+
   return (
     <div
-      ref={cardRef}
+      ref={(el) => { cardRef.current = el; nodeRef(el); }}
+      data-node-card="true"
       draggable
       style={{
         flexShrink: 0,
@@ -108,28 +120,18 @@ function HorizontalNodeCard({
         flexDirection: 'column',
         alignItems: 'center',
         gap: 3,
-        cursor: 'grab',
+        cursor: isSelected ? 'grab' : 'pointer',
         padding: '0 3px',
+        userSelect: 'none',
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={onSelect}
-      onDragStart={(e) => {
-        e.stopPropagation();
-        e.dataTransfer.setData(
-          'application/x-tarot-node',
-          JSON.stringify({ fromBranchId: branchId, nodeId: node.id })
-        );
-        e.dataTransfer.effectAllowed = 'copy';
-      }}
+      onDragStart={onDragStart}
     >
       <div
         style={{
-          border: highlight
-            ? `2px solid ${slotColor}`
-            : hovered
-            ? '2px solid #3a3a5e'
-            : '2px solid transparent',
+          border: `2px solid ${borderColor}`,
           borderRadius: 4,
           position: 'relative',
           flexShrink: 0,
@@ -138,7 +140,6 @@ function HorizontalNodeCard({
       >
         <NodeThumbnail node={node} width={THUMB_W} height={THUMB_H} />
 
-        {/* Hover action overlay */}
         {showOverlay && (
           <div
             style={{
@@ -176,14 +177,20 @@ function HorizontalNodeCard({
         )}
       </div>
 
-      {/* Active indicator dot */}
-      <div style={{ width: 4, height: 4, borderRadius: '50%', background: highlight ? slotColor : 'transparent', flexShrink: 0 }} />
+      <div
+        style={{
+          width: 4,
+          height: 4,
+          borderRadius: '50%',
+          background: highlight ? slotColor : isSelected ? '#6ee7b7' : 'transparent',
+          flexShrink: 0,
+        }}
+      />
 
-      {/* Node label */}
       <div
         style={{
           fontSize: 7,
-          color: highlight ? '#bbb' : '#555',
+          color: highlight ? '#bbb' : isSelected ? '#6ee7b7' : '#555',
           maxWidth: THUMB_W + 6,
           overflow: 'hidden',
           textOverflow: 'ellipsis',
@@ -211,12 +218,20 @@ function HorizontalBranchRow({ branch, slotIndex, isActiveBranch, canBranch }: H
   const setActiveNode = useStore((s) => s.setActiveNode);
   const branchFrom = useStore((s) => s.branchFrom);
   const renameBranch = useStore((s) => s.renameBranch);
-  const insertEditAt = useStore((s) => s.insertEditAt);
+  const insertEditsAt = useStore((s) => s.insertEditsAt);
 
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(branch.label);
   const [dragOverInsertAfterIdx, setDragOverInsertAfterIdx] = useState<number | null>(null);
+  const [selectedNodeIds, setSelectedNodeIds] = useState<ReadonlySet<string>>(new Set());
+  // marquee: x coords relative to scrollable content (accounts for scrollLeft)
+  const [marquee, setMarquee] = useState<{ startX: number; endX: number } | null>(null);
+
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const nodeElRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  // Non-stale ref to marquee.startX for use inside event handler effects
+  const marqueeStartXRef = useRef<number | null>(null);
 
   const color = SLOT_COLORS[slotIndex] ?? '#9c8fc0';
 
@@ -231,9 +246,58 @@ function HorizontalBranchRow({ branch, slotIndex, isActiveBranch, canBranch }: H
     if (!renaming) setRenameValue(branch.label);
   }, [branch.label, renaming]);
 
-  // Clear drop highlight when any drag ends globally
+  // Global mousemove/mouseup for marquee selection
   useEffect(() => {
-    function handleDragEnd() { setDragOverInsertAfterIdx(null); }
+    if (!marquee) return;
+
+    function onMouseMove(e: MouseEvent) {
+      const startX = marqueeStartXRef.current;
+      if (startX === null) return;
+      const container = scrollContainerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const x = e.clientX - rect.left + container.scrollLeft;
+      setMarquee({ startX, endX: x });
+
+      const selLeft = Math.min(startX, x);
+      const selRight = Math.max(startX, x);
+      const newSel = new Set<string>();
+      for (const [nodeId, el] of nodeElRefs.current) {
+        const elRect = el.getBoundingClientRect();
+        const elLeft = elRect.left - rect.left + container.scrollLeft;
+        const elRight = elLeft + elRect.width;
+        if (elRight > selLeft && elLeft < selRight) newSel.add(nodeId);
+      }
+      setSelectedNodeIds(newSel);
+    }
+
+    function onMouseUp(e: MouseEvent) {
+      // A tiny movement = click on background → clear selection
+      const startX = marqueeStartXRef.current ?? 0;
+      const container = scrollContainerRef.current;
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        const x = e.clientX - rect.left + container.scrollLeft;
+        if (Math.abs(x - startX) < 4) setSelectedNodeIds(new Set());
+      }
+      marqueeStartXRef.current = null;
+      setMarquee(null);
+    }
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [marquee !== null]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Clear selection and drop highlight when any drag ends
+  useEffect(() => {
+    function handleDragEnd() {
+      setDragOverInsertAfterIdx(null);
+      setSelectedNodeIds(new Set());
+    }
     window.addEventListener('dragend', handleDragEnd);
     return () => window.removeEventListener('dragend', handleDragEnd);
   }, []);
@@ -251,11 +315,28 @@ function HorizontalBranchRow({ branch, slotIndex, isActiveBranch, canBranch }: H
     const raw = e.dataTransfer.getData('application/x-tarot-node');
     if (!raw) return;
     try {
-      const { fromBranchId, nodeId } = JSON.parse(raw) as { fromBranchId: string; nodeId: string };
+      const { fromBranchId, nodeIds } = JSON.parse(raw) as { fromBranchId: string; nodeIds: string[] };
       if (fromBranchId === branch.id) return;
-      insertEditAt(fromBranchId, nodeId, branch.id, insertAfterNodeId);
+      insertEditsAt(fromBranchId, nodeIds, branch.id, insertAfterNodeId);
     } catch { /* ignore malformed drag data */ }
   }
+
+  function buildDragStart(node: TimelineNode) {
+    return (e: React.DragEvent<HTMLDivElement>) => {
+      e.stopPropagation();
+      // If this node is part of a multi-selection, drag the whole selection
+      const nodeIds = selectedNodeIds.has(node.id) && selectedNodeIds.size > 1
+        ? [...selectedNodeIds]
+        : [node.id];
+      e.dataTransfer.setData(
+        'application/x-tarot-node',
+        JSON.stringify({ fromBranchId: branch.id, nodeIds })
+      );
+      e.dataTransfer.effectAllowed = 'copy';
+    };
+  }
+
+  const selCount = selectedNodeIds.size;
 
   return (
     <div
@@ -281,20 +362,10 @@ function HorizontalBranchRow({ branch, slotIndex, isActiveBranch, canBranch }: H
           gap: 3,
         }}
       >
-        {/* Canvas slot label */}
-        <div
-          style={{
-            fontSize: 9,
-            fontWeight: 700,
-            color,
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-          }}
-        >
+        <div style={{ fontSize: 9, fontWeight: 700, color, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
           Canvas {slotIndex + 1}
         </div>
 
-        {/* Branch name — editable */}
         {renaming ? (
           <input
             ref={inputRef}
@@ -349,14 +420,14 @@ function HorizontalBranchRow({ branch, slotIndex, isActiveBranch, canBranch }: H
           </div>
         )}
 
-        {/* Node count */}
-        <div style={{ fontSize: 9, color: '#555' }}>
-          {branch.nodes.length} node{branch.nodes.length !== 1 ? 's' : ''}
+        <div style={{ fontSize: 9, color: selCount > 1 ? '#6ee7b7' : '#555' }}>
+          {selCount > 1 ? `${selCount} selected` : `${branch.nodes.length} node${branch.nodes.length !== 1 ? 's' : ''}`}
         </div>
       </div>
 
-      {/* Right: horizontally scrollable node list, oldest → newest left-to-right */}
+      {/* Right: horizontally scrollable node list */}
       <div
+        ref={scrollContainerRef}
         style={{
           flex: 1,
           overflowX: 'auto',
@@ -364,6 +435,20 @@ function HorizontalBranchRow({ branch, slotIndex, isActiveBranch, canBranch }: H
           alignItems: 'center',
           padding: '6px 8px',
           gap: 0,
+          position: 'relative',
+          userSelect: 'none',
+        }}
+        onMouseDown={(e) => {
+          // Only start marquee on background clicks (not on node cards)
+          const target = e.target as HTMLElement;
+          if (target.closest('[data-node-card]')) return;
+          e.preventDefault();
+          const container = e.currentTarget;
+          const rect = container.getBoundingClientRect();
+          const x = e.clientX - rect.left + container.scrollLeft;
+          marqueeStartXRef.current = x;
+          setMarquee({ startX: x, endX: x });
+          setSelectedNodeIds(new Set());
         }}
         onDragLeave={(e) => {
           if (!e.currentTarget.contains(e.relatedTarget as Node)) {
@@ -371,21 +456,43 @@ function HorizontalBranchRow({ branch, slotIndex, isActiveBranch, canBranch }: H
           }
         }}
       >
+        {/* Marquee selection rectangle */}
+        {marquee && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 4,
+              bottom: 4,
+              left: Math.min(marquee.startX, marquee.endX),
+              width: Math.abs(marquee.endX - marquee.startX),
+              background: 'rgba(110, 231, 183, 0.1)',
+              border: '1px solid rgba(110, 231, 183, 0.45)',
+              borderRadius: 2,
+              pointerEvents: 'none',
+              zIndex: 8,
+            }}
+          />
+        )}
+
         {branch.nodes.flatMap((node, i) => {
           const isDropActive = dragOverInsertAfterIdx === i;
           return [
             <HorizontalNodeCard
               key={node.id}
               node={node}
-              branchId={branch.id}
               isActive={node.id === branch.activeNodeId}
               isActiveBranch={isActiveBranch}
+              isSelected={selectedNodeIds.has(node.id)}
               showBranchButton={canBranch}
               slotColor={color}
               onSelect={() => setActiveNode(node.id)}
               onBranch={() => branchFrom(node.id, branch.id)}
+              onDragStart={buildDragStart(node)}
+              nodeRef={(el) => {
+                if (el) nodeElRefs.current.set(node.id, el);
+                else nodeElRefs.current.delete(node.id);
+              }}
             />,
-            // Drop zone after each node (including last = append to end)
             <div
               key={`dz-${node.id}`}
               style={{
@@ -431,7 +538,6 @@ export function TimelinePanel({ open, onToggle }: { open: boolean; onToggle: () 
   const canBranch = branches.length < MAX_BRANCHES;
   const totalNodes = branches.reduce((acc, b) => acc + b.nodes.length, 0);
 
-  // ── Collapsed strip ─────────────────────────────────────────────────────────
   if (!open) {
     return (
       <div
@@ -482,7 +588,6 @@ export function TimelinePanel({ open, onToggle }: { open: boolean; onToggle: () 
         flexDirection: 'column',
       }}
     >
-      {/* Panel header */}
       <div
         style={{
           display: 'flex',
@@ -521,7 +626,6 @@ export function TimelinePanel({ open, onToggle }: { open: boolean; onToggle: () 
         </div>
       </div>
 
-      {/* One row per existing branch — rows only appear when the branch exists */}
       {branches.map((branch, i) => (
         <HorizontalBranchRow
           key={branch.id}
