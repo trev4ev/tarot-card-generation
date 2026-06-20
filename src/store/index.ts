@@ -110,6 +110,8 @@ export interface StoreState {
   removeSymbol: (symbolId: string) => void;
   patchBlueprintOnBranch: (branchId: string, patch: DeepPartial<Blueprint>, label: string) => void;
   transferEdit: (fromBranchId: string, nodeId: string, toBranchId: string) => void;
+  undo: () => void;
+  redo: () => void;
 }
 
 // ── Initial state factory ─────────────────────────────────────────────────────
@@ -339,5 +341,37 @@ export const useStore = create<StoreState>((set, get) => ({
     if (diffs.length === 0) return;
     const patch = buildPatchFromDiffs(diffs);
     state.patchBlueprintOnBranch(toBranchId, patch, `↩ from ${fromBranch.label}: ${node.label}`);
+  },
+
+  undo: () => {
+    set((s) => {
+      const branch = s.branches.find((b) => b.id === s.activeBranchId);
+      if (!branch) return s;
+      const idx = branch.nodes.findIndex((n) => n.id === branch.activeNodeId);
+      if (idx <= 0) return s;
+      return {
+        branches: s.branches.map((b) =>
+          b.id === s.activeBranchId
+            ? { ...b, activeNodeId: branch.nodes[idx - 1].id }
+            : b
+        ),
+      };
+    });
+  },
+
+  redo: () => {
+    set((s) => {
+      const branch = s.branches.find((b) => b.id === s.activeBranchId);
+      if (!branch) return s;
+      const idx = branch.nodes.findIndex((n) => n.id === branch.activeNodeId);
+      if (idx >= branch.nodes.length - 1) return s;
+      return {
+        branches: s.branches.map((b) =>
+          b.id === s.activeBranchId
+            ? { ...b, activeNodeId: branch.nodes[idx + 1].id }
+            : b
+        ),
+      };
+    });
   },
 }));
