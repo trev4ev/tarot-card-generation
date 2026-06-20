@@ -595,12 +595,6 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
               onLiveChange={(v) => livePalette('text', v)}
               onChange={(v) => patchPalette('text', v)}
             />
-            <ColorRow
-              label="Border"
-              value={bp.palette.border}
-              onLiveChange={(v) => livePalette('border', v)}
-              onChange={(v) => patchPalette('border', v)}
-            />
           </Section>
 
           {/* Symbols */}
@@ -658,6 +652,12 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
               min={4} max={28}
               onLiveChange={(v) => liveFrame('innerMargin', v)}
               onChange={(v) => patchFrame('innerMargin', v)}
+            />
+            <ColorRow
+              label="Frame color"
+              value={bp.frame.color ?? bp.palette.border}
+              onLiveChange={(v) => liveFrame('color', v)}
+              onChange={(v) => patchFrame('color', v)}
             />
           </Section>
 
