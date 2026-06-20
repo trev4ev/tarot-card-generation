@@ -62,21 +62,15 @@ function NodeThumbnail({ node, width, height }: { node: TimelineNode; width: num
 
 // ── HorizontalNodeCard ────────────────────────────────────────────────────────
 
-interface TransferTarget {
-  id: string;
-  label: string;
-}
-
 interface HorizontalNodeCardProps {
   node: TimelineNode;
+  branchId: string;
   isActive: boolean;
   isActiveBranch: boolean;
   showBranchButton: boolean;
-  transferTargets: TransferTarget[];
   slotColor: string;
   onSelect: () => void;
   onBranch: () => void;
-  onTransfer: (toBranchId: string) => void;
 }
 
 const THUMB_W = 34;
@@ -84,20 +78,18 @@ const THUMB_H = 58;
 
 function HorizontalNodeCard({
   node,
+  branchId,
   isActive,
   isActiveBranch,
   showBranchButton,
-  transferTargets,
   slotColor,
   onSelect,
   onBranch,
-  onTransfer,
 }: HorizontalNodeCardProps) {
   const [hovered, setHovered] = useState(false);
   const cardRef = useRef<HTMLDivElement | null>(null);
   const highlight = isActive && isActiveBranch;
-  const canTransfer = transferTargets.length > 0;
-  const showOverlay = hovered && (showBranchButton || canTransfer);
+  const showOverlay = hovered && showBranchButton;
 
   // Scroll into view when this node becomes the active one
   useEffect(() => {
@@ -109,18 +101,27 @@ function HorizontalNodeCard({
   return (
     <div
       ref={cardRef}
+      draggable
       style={{
         flexShrink: 0,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         gap: 3,
-        cursor: 'pointer',
+        cursor: 'grab',
         padding: '0 3px',
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={onSelect}
+      onDragStart={(e) => {
+        e.stopPropagation();
+        e.dataTransfer.setData(
+          'application/x-tarot-node',
+          JSON.stringify({ fromBranchId: branchId, nodeId: node.id })
+        );
+        e.dataTransfer.effectAllowed = 'copy';
+      }}
     >
       <div
         style={{
@@ -137,7 +138,7 @@ function HorizontalNodeCard({
       >
         <NodeThumbnail node={node} width={THUMB_W} height={THUMB_H} />
 
-        {/* Hover action overlay — rendered inside the thumbnail so no clipping */}
+        {/* Hover action overlay */}
         {showOverlay && (
           <div
             style={{
@@ -153,50 +154,24 @@ function HorizontalNodeCard({
               padding: '3px',
             }}
           >
-            {showBranchButton && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onBranch(); }}
-                title="Branch from here"
-                style={{
-                  background: '#2a2a4e',
-                  border: '1px solid #4a3f7e',
-                  color: '#c4b5fd',
-                  borderRadius: 2,
-                  padding: '2px 0',
-                  fontSize: 8,
-                  cursor: 'pointer',
-                  width: '100%',
-                  textAlign: 'center',
-                  lineHeight: 1.2,
-                }}
-              >
-                ⎇ branch
-              </button>
-            )}
-            {canTransfer && transferTargets.map((t) => (
-              <button
-                key={t.id}
-                onClick={(e) => { e.stopPropagation(); onTransfer(t.id); }}
-                title={`Send to ${t.label}`}
-                style={{
-                  background: '#1a3a28',
-                  border: '1px solid #2a5a3a',
-                  color: '#6ee7b7',
-                  borderRadius: 2,
-                  padding: '2px 0',
-                  fontSize: 7,
-                  cursor: 'pointer',
-                  width: '100%',
-                  textAlign: 'center',
-                  lineHeight: 1.2,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                → {t.label.length > 6 ? t.label.substring(0, 5) + '…' : t.label}
-              </button>
-            ))}
+            <button
+              onClick={(e) => { e.stopPropagation(); onBranch(); }}
+              title="Branch from here"
+              style={{
+                background: '#2a2a4e',
+                border: '1px solid #4a3f7e',
+                color: '#c4b5fd',
+                borderRadius: 2,
+                padding: '2px 0',
+                fontSize: 8,
+                cursor: 'pointer',
+                width: '100%',
+                textAlign: 'center',
+                lineHeight: 1.2,
+              }}
+            >
+              ⎇ branch
+            </button>
           </div>
         )}
       </div>
@@ -230,17 +205,17 @@ interface HorizontalBranchRowProps {
   slotIndex: number;
   isActiveBranch: boolean;
   canBranch: boolean;
-  allBranches: Branch[];
 }
 
-function HorizontalBranchRow({ branch, slotIndex, isActiveBranch, canBranch, allBranches }: HorizontalBranchRowProps) {
+function HorizontalBranchRow({ branch, slotIndex, isActiveBranch, canBranch }: HorizontalBranchRowProps) {
   const setActiveNode = useStore((s) => s.setActiveNode);
   const branchFrom = useStore((s) => s.branchFrom);
   const renameBranch = useStore((s) => s.renameBranch);
-  const transferEdit = useStore((s) => s.transferEdit);
+  const insertEditAt = useStore((s) => s.insertEditAt);
 
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(branch.label);
+  const [dragOverInsertAfterIdx, setDragOverInsertAfterIdx] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const color = SLOT_COLORS[slotIndex] ?? '#9c8fc0';
@@ -256,6 +231,13 @@ function HorizontalBranchRow({ branch, slotIndex, isActiveBranch, canBranch, all
     if (!renaming) setRenameValue(branch.label);
   }, [branch.label, renaming]);
 
+  // Clear drop highlight when any drag ends globally
+  useEffect(() => {
+    function handleDragEnd() { setDragOverInsertAfterIdx(null); }
+    window.addEventListener('dragend', handleDragEnd);
+    return () => window.removeEventListener('dragend', handleDragEnd);
+  }, []);
+
   function confirmRename() {
     const trimmed = renameValue.trim();
     if (trimmed) renameBranch(branch.id, trimmed);
@@ -263,9 +245,17 @@ function HorizontalBranchRow({ branch, slotIndex, isActiveBranch, canBranch, all
     setRenaming(false);
   }
 
-  const transferTargets = allBranches
-    .filter((b) => b.id !== branch.id)
-    .map((b) => ({ id: b.id, label: b.label }));
+  function handleDrop(e: React.DragEvent, insertAfterNodeId: string) {
+    e.preventDefault();
+    setDragOverInsertAfterIdx(null);
+    const raw = e.dataTransfer.getData('application/x-tarot-node');
+    if (!raw) return;
+    try {
+      const { fromBranchId, nodeId } = JSON.parse(raw) as { fromBranchId: string; nodeId: string };
+      if (fromBranchId === branch.id) return;
+      insertEditAt(fromBranchId, nodeId, branch.id, insertAfterNodeId);
+    } catch { /* ignore malformed drag data */ }
+  }
 
   return (
     <div
@@ -373,27 +363,59 @@ function HorizontalBranchRow({ branch, slotIndex, isActiveBranch, canBranch, all
           display: 'flex',
           alignItems: 'center',
           padding: '6px 8px',
-          gap: 4,
+          gap: 0,
+        }}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            setDragOverInsertAfterIdx(null);
+          }
         }}
       >
-        {branch.nodes.map((node) => {
-          const parentInBranch =
-            node.parentId !== null &&
-            branch.nodes.some((n) => n.id === node.parentId);
-          return (
+        {branch.nodes.flatMap((node, i) => {
+          const isDropActive = dragOverInsertAfterIdx === i;
+          return [
             <HorizontalNodeCard
               key={node.id}
               node={node}
+              branchId={branch.id}
               isActive={node.id === branch.activeNodeId}
               isActiveBranch={isActiveBranch}
               showBranchButton={canBranch}
-              transferTargets={parentInBranch ? transferTargets : []}
               slotColor={color}
               onSelect={() => setActiveNode(node.id)}
               onBranch={() => branchFrom(node.id, branch.id)}
-              onTransfer={(toBranchId) => transferEdit(branch.id, node.id, toBranchId)}
-            />
-          );
+            />,
+            // Drop zone after each node (including last = append to end)
+            <div
+              key={`dz-${node.id}`}
+              style={{
+                width: 14,
+                alignSelf: 'stretch',
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              onDragEnter={(e) => { e.preventDefault(); setDragOverInsertAfterIdx(i); }}
+              onDragOver={(e) => { e.preventDefault(); setDragOverInsertAfterIdx(i); }}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                  setDragOverInsertAfterIdx((prev) => (prev === i ? null : prev));
+                }
+              }}
+              onDrop={(e) => handleDrop(e, node.id)}
+            >
+              <div
+                style={{
+                  width: 2,
+                  height: 38,
+                  borderRadius: 1,
+                  background: isDropActive ? '#6ee7b7' : 'rgba(90, 80, 140, 0.25)',
+                  transition: 'background 0.1s',
+                }}
+              />
+            </div>,
+          ];
         })}
       </div>
     </div>
@@ -424,13 +446,20 @@ export function TimelinePanel({ open, onToggle }: { open: boolean; onToggle: () 
           gap: 8,
         }}
       >
+        <span style={{ fontSize: 10, fontWeight: 600, color: '#9c8fc0', letterSpacing: '0.08em' }}>
+          TIMELINE
+        </span>
+        <div style={{ flex: 1 }} />
+        <span style={{ fontSize: 10, color: '#444' }}>
+          {branches.length} branch{branches.length !== 1 ? 'es' : ''} · {totalNodes} node{totalNodes !== 1 ? 's' : ''}
+        </span>
         <button
           onClick={onToggle}
           title="Expand timeline"
           style={{
             background: 'none',
             border: 'none',
-            color: '#9c8fc0',
+            color: '#555',
             cursor: 'pointer',
             fontSize: 12,
             lineHeight: 1,
@@ -439,12 +468,6 @@ export function TimelinePanel({ open, onToggle }: { open: boolean; onToggle: () 
         >
           ▲
         </button>
-        <span style={{ fontSize: 10, fontWeight: 600, color: '#555', letterSpacing: '0.08em' }}>
-          TIMELINE
-        </span>
-        <span style={{ fontSize: 10, color: '#444' }}>
-          {branches.length} branch{branches.length !== 1 ? 'es' : ''} · {totalNodes} node{totalNodes !== 1 ? 's' : ''}
-        </span>
       </div>
     );
   }
@@ -506,7 +529,6 @@ export function TimelinePanel({ open, onToggle }: { open: boolean; onToggle: () 
           slotIndex={i}
           isActiveBranch={branch.id === activeBranchId}
           canBranch={canBranch}
-          allBranches={branches}
         />
       ))}
     </div>
