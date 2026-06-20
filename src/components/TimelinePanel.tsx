@@ -479,8 +479,6 @@ export function TimelinePanel({ open, onToggle }: { open: boolean; onToggle: () 
             {branches.length} branch{branches.length !== 1 ? 'es' : ''}
             {' · '}
             {totalNodes} node{totalNodes !== 1 ? 's' : ''}
-            {' · '}
-            <span style={{ color: '#444' }}>⌘Z undo</span>
           </span>
           <button
             onClick={onToggle}

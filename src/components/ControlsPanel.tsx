@@ -545,7 +545,7 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
             transition: 'background 0.15s',
           }}
         >
-          {isGenerating ? 'Generating…' : 'Generate (⌘↵ / Ctrl↵)'}
+          {isGenerating ? 'Generating…' : 'Generate'}
         </button>
         {error && (
           <p style={{ fontSize: '11px', color: '#f87171', lineHeight: 1.4 }}>{error}</p>
@@ -573,9 +573,9 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
           <Section id="Palette" title="Palette" openSection={openSection} onToggle={setOpenSection}>
             <ColorRow
               label="Background"
-              value={bp.palette.background}
-              onLiveChange={(v) => livePalette('background', v)}
-              onChange={(v) => patchPalette('background', v)}
+              value={bp.background.baseColor}
+              onLiveChange={(v) => liveBg('baseColor', v)}
+              onChange={(v) => patchBg('baseColor', v)}
             />
             <ColorRow
               label="Primary accent"
@@ -722,12 +722,6 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
 
           {/* Background */}
           <Section id="Background" title="Background" openSection={openSection} onToggle={setOpenSection}>
-            <ColorRow
-              label="Base color"
-              value={bp.background.baseColor}
-              onLiveChange={(v) => liveBg('baseColor', v)}
-              onChange={(v) => patchBg('baseColor', v)}
-            />
             <Sel
               label="Texture"
               value={bp.background.texture}

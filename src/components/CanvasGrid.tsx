@@ -196,10 +196,10 @@ function BranchCard({
         const newX = Math.max(0, Math.min(1, drag.origX + dx));
         const newY = Math.max(0, Math.min(1, drag.origY + dy));
         onSymbolDragCommitRef.current(drag.symbolId, newX, newY);
-      } else {
-        // No significant movement: treat as a click to select
-        onElementClickRef.current({ type: 'symbol', symbolId: drag.symbolId });
       }
+      // Whether it was a click or a drag, leave the symbol selected so its
+      // controls stay open for immediate fine-tuning.
+      onElementClickRef.current({ type: 'symbol', symbolId: drag.symbolId });
       draggingRef.current = null;
       hasDraggedRef.current = false;
       setIsDragging(false);
@@ -288,7 +288,7 @@ function BranchCard({
           return (
             <img
               key={blueprint.illustration}
-              src={`/illustrations/${blueprint.illustration}.png`}
+              src={`${import.meta.env.BASE_URL}illustrations/${blueprint.illustration}.png`}
               alt={blueprint.illustration}
               style={{
                 position: 'absolute',

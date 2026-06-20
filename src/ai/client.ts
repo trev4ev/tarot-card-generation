@@ -54,6 +54,9 @@ const ILLUSTRATION_LIST = ILLUSTRATIONS
   .map((ill) => `  - id: "${ill.id}" — ${ill.name}: ${ill.description}`)
   .join('\n');
 
+// Neutral fallback when the model omits or returns an unknown illustration id.
+const FALLBACK_ILLUSTRATION = 'wheel-of-fortune';
+
 // ── Structured AI response type ───────────────────────────────────────────────
 
 interface AICardResponse {
@@ -136,7 +139,7 @@ function sanitize(raw: unknown): AICardResponse {
   return {
     illustrationId: ILLUSTRATION_MAP.has(r.illustrationId as string)
       ? (r.illustrationId as string)
-      : ILLUSTRATIONS[0].id,
+      : FALLBACK_ILLUSTRATION,
 
     identity: {
       name: safeStr(identity.name, 'Unknown'),
@@ -212,7 +215,7 @@ function sanitize(raw: unknown): AICardResponse {
 
 // ── Map sanitized response → Blueprint ───────────────────────────────────────
 
-function responseToBlueprintPatch(r: AICardResponse): Omit<Blueprint, 'id'> {
+function responseToBlueprintPatch(r: AICardResponse): Omit<Blueprint, 'id' | 'seed'> {
   const titlePosition = r.typography.titlePosition;
   return {
     illustration: r.illustrationId,
@@ -304,7 +307,7 @@ export const realAIClient: AIClient = {
   async generateCard(prompt: string): Promise<Blueprint> {
     const text = await callClaude(GENERATE_CARD_SYSTEM, `Design a tarot card for: ${prompt}`);
     const response = sanitize(extractJson(text));
-    return { ...responseToBlueprintPatch(response), id: crypto.randomUUID() };
+    return { ...responseToBlueprintPatch(response), id: crypto.randomUUID(), seed: crypto.randomUUID() };
   },
 
   async generateSymbol(description: string, context: Blueprint): Promise<SymbolDef> {
@@ -343,6 +346,6 @@ export const realAIClient: AIClient = {
       `Instruction: ${instruction}\n\nCurrent design: ${JSON.stringify(current, null, 2)}`,
     );
     const response = sanitize(extractJson(text));
-    return { ...responseToBlueprintPatch(response), id: crypto.randomUUID() };
+    return { ...responseToBlueprintPatch(response), id: crypto.randomUUID(), seed: crypto.randomUUID() };
   },
 };

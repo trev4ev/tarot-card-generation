@@ -44,6 +44,26 @@ function seededRng(seed: string, index: number): number {
   return h / 0xffffffff;
 }
 
+// Grain amounts (Konva Noise filter amplitude). Kept subtle so vector art reads
+// as gently textured/printed rather than dirty. Text uses a lighter grain to
+// preserve legibility.
+const SHAPE_NOISE = 0.16;
+const TEXT_NOISE = 0.09;
+
+// Rasterizes a node and overlays film-grain noise so flat vector fills look more
+// organic. Only opaque pixels are affected (the filter leaves alpha untouched),
+// so the grain hugs the shape rather than its bounding box.
+function applyNoise(node: Konva.Node, amount: number, offset = 2): void {
+  const pixelRatio = Math.min(3, Math.max(1, Math.round(window.devicePixelRatio || 1)));
+  try {
+    node.cache({ pixelRatio, offset });
+    node.filters([Konva.Filters.Noise]);
+    node.noise(amount);
+  } catch {
+    // cache() throws on zero-area nodes — just skip the grain in that case.
+  }
+}
+
 // ── Patterns ─────────────────────────────────────────────────────────────────
 
 function drawPattern(
@@ -261,7 +281,7 @@ function drawTexture(
 // ── Corner motifs ─────────────────────────────────────────────────────────────
 
 function drawCornerMotif(
-  layer: Konva.Layer,
+  parent: Konva.Layer,
   motif: CornerMotifEnum,
   cx: number,
   cy: number,
@@ -270,6 +290,9 @@ function drawCornerMotif(
 ): void {
   if (motif === 'none') return;
   const s = 11;
+
+  // Each motif is grouped so it can be rasterized and grained as a unit.
+  const layer = new Konva.Group({ listening: false });
 
   switch (motif) {
     case 'star':
@@ -347,6 +370,9 @@ function drawCornerMotif(
     default:
       break;
   }
+
+  parent.add(layer);
+  applyNoise(layer, SHAPE_NOISE);
 }
 
 // ── Symbol rendering ──────────────────────────────────────────────────────────
@@ -434,6 +460,7 @@ function drawSymbol(
   }
 
   layer.add(group);
+  applyNoise(group, SHAPE_NOISE);
 }
 
 // ── Main renderer ─────────────────────────────────────────────────────────────
@@ -460,11 +487,12 @@ export const rendererStub: RendererAPI = {
       fill: bg.baseColor, id: 'background',
     }));
 
-    // 2 — Texture overlay (beneath pattern and frame)
-    drawTexture(layer, bg.texture, bg.textureDensity, blueprint.id);
+    // 2 — Texture overlay (beneath pattern and frame). Seeded by the stable
+    // `seed` (not `id`) so scattered dots/lines stay put across edits.
+    drawTexture(layer, bg.texture, bg.textureDensity, blueprint.seed);
 
     // 2b — Pattern overlay (beneath frame)
-    drawPattern(layer, bg.pattern, bg.patternOpacity, palette.primaryAccent, blueprint.id);
+    drawPattern(layer, bg.pattern, bg.patternOpacity, palette.primaryAccent, blueprint.seed);
 
     // 3 — Outer frame border
     const cornerRadius = (
@@ -540,7 +568,11 @@ export const rendererStub: RendererAPI = {
       : CARD_H - frame.thickness - frame.innerMargin - lineH
         - (footer.visible ? footer.size + 10 : 0);
 
-    layer.add(new Konva.Text({
+    // Text nodes get a light grain too, but they must be re-cached once the web
+    // fonts finish loading (caching freezes the rasterized glyphs).
+    const textNodes: Konva.Text[] = [];
+
+    const titleNode = new Konva.Text({
       x: innerLeft, y: titleY, width: innerWidth,
       text: titleText,
       fontSize: typography.titleSize,
@@ -550,10 +582,12 @@ export const rendererStub: RendererAPI = {
       align: typography.titleAlign,
       letterSpacing: typography.letterSpacing,
       id: 'title',
-    }));
+    });
+    layer.add(titleNode);
+    textNodes.push(titleNode);
 
     // 9 — Archetype subtitle
-    layer.add(new Konva.Text({
+    const archetypeNode = new Konva.Text({
       x: innerLeft, y: titleY + lineH, width: innerWidth,
       text: identity.archetype,
       fontSize: typography.bodySize,
@@ -562,11 +596,13 @@ export const rendererStub: RendererAPI = {
       align: typography.titleAlign,
       opacity: 0.8,
       id: 'archetype',
-    }));
+    });
+    layer.add(archetypeNode);
+    textNodes.push(archetypeNode);
 
     // 10 — Footer
     if (footer.visible) {
-      layer.add(new Konva.Text({
+      const footerNode = new Konva.Text({
         x: innerLeft,
         y: CARD_H - frame.thickness - frame.innerMargin - footer.size - 3,
         width: innerWidth,
@@ -577,8 +613,12 @@ export const rendererStub: RendererAPI = {
         align: 'center',
         opacity: 0.75,
         id: 'footer',
-      }));
+      });
+      layer.add(footerNode);
+      textNodes.push(footerNode);
     }
+
+    for (const t of textNodes) applyNoise(t, TEXT_NOISE, 1);
 
     // 11 — Mood overlay (vignette / glow via radial gradient)
     const moodRatio = blueprint.mood / 100;
@@ -607,7 +647,14 @@ export const rendererStub: RendererAPI = {
     }
 
     layer.batchDraw();
-    void document.fonts.ready.then(() => { layer.batchDraw(); });
+    void document.fonts.ready.then(() => {
+      // Re-rasterize grained text now that the real fonts are available.
+      for (const t of textNodes) {
+        t.clearCache();
+        applyNoise(t, TEXT_NOISE, 1);
+      }
+      layer.batchDraw();
+    });
   },
 
   hitTest(x: number, y: number, blueprint: Blueprint): ElementRef | null {

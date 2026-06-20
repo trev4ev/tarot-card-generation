@@ -29,6 +29,10 @@ export type SymbolDef = {
 
 export type Blueprint = {
   id: string;
+  // Stable random seed for decorative background patterns/textures. Unlike `id`
+  // (which changes on every edit to create a new history node), `seed` is
+  // preserved across edits so the scattered stars/circles stay put.
+  seed: string;
   illustration: string | null;
   identity: {
     name: string;

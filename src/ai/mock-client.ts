@@ -44,18 +44,22 @@ const KEYWORD_ILLUSTRATION: Array<[RegExp, string]> = [
   [/hang|sacrifice|surrender|perspective/i, 'the-hanged-man'],
 ];
 
+// When nothing in the prompt matches a specific card, fall back to a neutral
+// "fate / mystery" illustration rather than The Fool.
+const FALLBACK_ILLUSTRATION = 'wheel-of-fortune';
+
 function pickIllustration(prompt: string): string {
   for (const [re, id] of KEYWORD_ILLUSTRATION) {
     if (re.test(prompt)) return id;
   }
-  return 'the-fool';
+  return FALLBACK_ILLUSTRATION;
 }
 
 export const mockAIClient: AIClient = {
   async generateCard(prompt: string): Promise<Blueprint> {
     await delay(500);
     const bp = pickByKeyword(prompt);
-    return { ...bp, illustration: pickIllustration(prompt) };
+    return { ...bp, seed: crypto.randomUUID(), illustration: pickIllustration(prompt) };
   },
 
   async generateSymbol(description: string, _context: Blueprint): Promise<SymbolDef> {

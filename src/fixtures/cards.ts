@@ -2,6 +2,7 @@ import type { Blueprint } from '../types/blueprint';
 
 export const theFool: Blueprint = {
   id: 'fixture-the-fool',
+  seed: 'seed-the-fool',
   illustration: 'the-fool',
   identity: {
     name: 'The Fool',
@@ -78,6 +79,7 @@ export const theFool: Blueprint = {
 
 export const theMoon: Blueprint = {
   id: 'fixture-the-moon',
+  seed: 'seed-the-moon',
   illustration: 'the-moon',
   identity: {
     name: 'The Moon',
@@ -164,6 +166,7 @@ export const theMoon: Blueprint = {
 
 export const aceOfWands: Blueprint = {
   id: 'fixture-ace-of-wands',
+  seed: 'seed-ace-of-wands',
   illustration: 'the-magician',
   identity: {
     name: 'Ace of Wands',
