@@ -423,11 +423,7 @@ export const useStore = create<StoreState>((set, get) => ({
     ];
 
     // Remap activeNodeId for rebased nodes; advance to end if this is the active branch
-    const oldToNew = new Map(nodesAfter.map((n, i) => [n.id, rebasedNodes[i].id]));
-    let newActiveNodeId = oldToNew.get(toBranch.activeNodeId) ?? toBranch.activeNodeId;
-    if (toBranchId === state.activeBranchId) {
-      newActiveNodeId = newNodes[newNodes.length - 1].id;
-    }
+    const newActiveNodeId = newNodes[newNodes.length - 1].id;
 
     set((s) => ({
       branches: s.branches.map((b) =>

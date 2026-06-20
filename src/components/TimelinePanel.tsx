@@ -34,7 +34,7 @@ function HorizontalNodeCard({
 }: HorizontalNodeCardProps) {
   const [hovered, setHovered] = useState(false);
   const cardRef = useRef<HTMLDivElement | null>(null);
-  const highlight = isActive && isActiveBranch;
+  const highlight = isActive;
   const showBranchBtn = hovered && showBranchButton && !isSelected;
 
   useEffect(() => {
