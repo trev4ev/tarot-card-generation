@@ -10,6 +10,14 @@ type DeepPartial<T> = T extends object
   : T;
 
 // ── deepMerge ────────────────────────────────────────────────────────────────
+function fmtVal(v: unknown): string {
+  if (typeof v === 'number') return String(Math.round(v * 100) / 100);
+  if (typeof v === 'boolean') return v ? 'on' : 'off';
+  if (v === null || v === undefined) return '–';
+  const s = String(v);
+  return s.length > 14 ? s.slice(0, 13) + '…' : s;
+}
+
 function isPlainObject(val: unknown): val is Record<string, unknown> {
   return typeof val === 'object' && val !== null && !Array.isArray(val);
 }
@@ -289,7 +297,8 @@ export const useStore = create<StoreState>((set, get) => ({
     const symbols = current.symbols.map((s) =>
       s.id === symbolId ? { ...s, ...patch } : s
     );
-    state.patchBlueprint({ symbols }, `Symbol: ${Object.keys(patch).join(', ')}`);
+    const label = Object.entries(patch).map(([k, v]) => `${k}: ${fmtVal(v)}`).join(', ');
+    state.patchBlueprint({ symbols }, label);
   },
 
   addSymbol: (sym) => {

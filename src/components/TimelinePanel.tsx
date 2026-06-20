@@ -18,7 +18,7 @@ interface HorizontalNodeCardProps {
   nodeRef: (el: HTMLDivElement | null) => void;
 }
 
-const NODE_W = 80;
+const NODE_W = 96;
 
 function HorizontalNodeCard({
   node,
@@ -105,7 +105,7 @@ function HorizontalNodeCard({
       >
         <div
           style={{
-            fontSize: 10,
+            fontSize: 8,
             lineHeight: 1.35,
             color: labelColor,
             textAlign: 'center',

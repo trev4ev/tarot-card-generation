@@ -273,23 +273,31 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
     }
   }
 
+  function fmtVal(v: unknown): string {
+    if (typeof v === 'number') return String(Math.round(v * 100) / 100);
+    if (typeof v === 'boolean') return v ? 'on' : 'off';
+    if (v === null || v === undefined) return '–';
+    const s = String(v);
+    return s.length > 14 ? s.slice(0, 13) + '…' : s;
+  }
+
   function patchPalette(key: keyof Blueprint['palette'], value: string) {
-    patchBlueprint({ palette: { [key]: value } as Partial<Blueprint['palette']> }, `Palette: ${key}`);
+    patchBlueprint({ palette: { [key]: value } as Partial<Blueprint['palette']> }, `${key}: ${fmtVal(value)}`);
   }
   function patchFrame(key: keyof Blueprint['frame'], value: Blueprint['frame'][typeof key]) {
-    patchBlueprint({ frame: { [key]: value } as Partial<Blueprint['frame']> }, `Frame: ${key}`);
+    patchBlueprint({ frame: { [key]: value } as Partial<Blueprint['frame']> }, `${key}: ${fmtVal(value)}`);
   }
   function patchTypo(key: keyof Blueprint['typography'], value: Blueprint['typography'][typeof key]) {
-    patchBlueprint({ typography: { [key]: value } as Partial<Blueprint['typography']> }, `Typography: ${key}`);
+    patchBlueprint({ typography: { [key]: value } as Partial<Blueprint['typography']> }, `${key}: ${fmtVal(value)}`);
   }
   function patchBg(key: keyof Blueprint['background'], value: Blueprint['background'][typeof key]) {
-    patchBlueprint({ background: { [key]: value } as Partial<Blueprint['background']> }, `Background: ${key}`);
+    patchBlueprint({ background: { [key]: value } as Partial<Blueprint['background']> }, `${key}: ${fmtVal(value)}`);
   }
   function patchFooter(key: keyof Blueprint['footer'], value: Blueprint['footer'][typeof key]) {
-    patchBlueprint({ footer: { [key]: value } as Partial<Blueprint['footer']> }, `Footer: ${key}`);
+    patchBlueprint({ footer: { [key]: value } as Partial<Blueprint['footer']> }, `${key}: ${fmtVal(value)}`);
   }
   function patchIdentity(key: keyof Blueprint['identity'], value: Blueprint['identity'][typeof key]) {
-    patchBlueprint({ identity: { [key]: value } as Partial<Blueprint['identity']> }, `Title: ${key}`);
+    patchBlueprint({ identity: { [key]: value } as Partial<Blueprint['identity']> }, `${key}: ${fmtVal(value)}`);
   }
 
   function livePalette(key: keyof Blueprint['palette'], value: string) {
