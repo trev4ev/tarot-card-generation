@@ -48,7 +48,6 @@ export type Blueprint = {
     titleSize: number;
     titleWeight: WeightEnum;
     bodySize: number;
-    bodyWeight: WeightEnum;
     letterSpacing: number;
     titleCase: 'upper' | 'title' | 'asGenerated';
     titleAlign: 'left' | 'center' | 'right';
@@ -88,14 +87,6 @@ export type DiffEntry = {
   newValue: unknown;
 };
 
-export type BlueprintDiff = {
-  id: string;
-  sourceNodeId: string;
-  targetNodeId: string;
-  entries: DiffEntry[];
-  label: string;
-};
-
 export type TimelineNode = {
   id: string;
   blueprint: Blueprint;
@@ -116,7 +107,4 @@ export type Branch = {
   label: string;
   nodes: TimelineNode[];
   activeNodeId: string;
-  collapsed: boolean;
-  sourceNodeId: string | null;
-  sourceBranchId: string | null;
 };

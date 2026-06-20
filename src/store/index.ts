@@ -102,7 +102,6 @@ export interface StoreState {
   updateLiveBlueprint: (patch: DeepPartial<Blueprint>) => void;
   branchFrom: (nodeId: string, sourceBranchId: string) => Branch | null;
   renameBranch: (branchId: string, label: string) => void;
-  toggleBranchCollapse: (branchId: string) => void;
   setIsGenerating: (val: boolean) => void;
   resetToFixture: () => void;
   updateSymbol: (symbolId: string, patch: Partial<SymbolDef>) => void;
@@ -126,9 +125,6 @@ function makeInitialBranch(): Branch {
     label: 'Main',
     nodes: [node],
     activeNodeId: node.id,
-    collapsed: false,
-    sourceNodeId: null,
-    sourceBranchId: null,
   };
 }
 
@@ -243,9 +239,6 @@ export const useStore = create<StoreState>((set, get) => ({
       label: `Branch ${state.branches.length}`,
       nodes: [newNode],
       activeNodeId: newNode.id,
-      collapsed: false,
-      sourceNodeId: nodeId,
-      sourceBranchId: sourceBranchId,
     };
     set((s) => ({
       branches: [...s.branches, newBranch],
@@ -259,14 +252,6 @@ export const useStore = create<StoreState>((set, get) => ({
     set((s) => ({
       branches: s.branches.map((b) =>
         b.id === branchId ? { ...b, label } : b
-      ),
-    }));
-  },
-
-  toggleBranchCollapse: (branchId) => {
-    set((s) => ({
-      branches: s.branches.map((b) =>
-        b.id === branchId ? { ...b, collapsed: !b.collapsed } : b
       ),
     }));
   },
