@@ -278,31 +278,28 @@ function BranchCard({
           height: CARD_H,
         }}
       >
+        {blueprint.illustration && (
+          <img
+            key={blueprint.illustration}
+            src={`${import.meta.env.BASE_URL}illustrations/${blueprint.illustration}.png`}
+            alt={blueprint.illustration}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              pointerEvents: 'none',
+            }}
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          />
+        )}
         <Stage
           width={CARD_W}
           height={CARD_H}
           ref={(node) => { stageRef.current = node; }}
         />
-        {blueprint.illustration && (() => {
-          const ia = blueprint.layout.illustrationArea;
-          return (
-            <img
-              key={blueprint.illustration}
-              src={`${import.meta.env.BASE_URL}illustrations/${blueprint.illustration}.png`}
-              alt={blueprint.illustration}
-              style={{
-                position: 'absolute',
-                left: `${ia.x * 100}%`,
-                top: `${ia.y * 100}%`,
-                width: `${ia.width * 100}%`,
-                height: `${ia.height * 100}%`,
-                objectFit: 'cover',
-                pointerEvents: 'none',
-              }}
-              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-            />
-          );
-        })()}
       </div>
 
       {/* Branch label overlay */}

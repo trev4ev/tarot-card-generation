@@ -659,12 +659,6 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
               onLiveChange={(v) => liveFrame('innerMargin', v)}
               onChange={(v) => patchFrame('innerMargin', v)}
             />
-            <ColorRow
-              label="Frame color (blank = border)"
-              value={bp.frame.color ?? bp.palette.border}
-              onLiveChange={(v) => liveFrame('color', v)}
-              onChange={(v) => patchFrame('color', v)}
-            />
           </Section>
 
           {/* Title */}
@@ -689,27 +683,10 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
               onChange={(v) => patchTypo('titleSize', v)}
             />
             <Sel
-              label="Title case"
-              value={bp.typography.titleCase}
-              options={['upper', 'title', 'asGenerated'] as const}
-              onChange={(v) => patchTypo('titleCase', v)}
-            />
-            <Sel
               label="Title align"
               value={bp.typography.titleAlign}
               options={['left', 'center', 'right'] as const}
               onChange={(v) => patchTypo('titleAlign', v)}
-            />
-            <Sel
-              label="Title position"
-              value={bp.layout.titlePosition}
-              options={['top', 'bottom'] as const}
-              onChange={(v) =>
-                patchBlueprint(
-                  { layout: { ...bp.layout, titlePosition: v } },
-                  `Title position: ${v}`,
-                )
-              }
             />
             <Slider
               label="Letter spacing"

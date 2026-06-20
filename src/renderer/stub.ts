@@ -480,12 +480,15 @@ export const rendererStub: RendererAPI = {
     const iaY = ia.y * CARD_H;
     const iaW = ia.width * CARD_W;
     const iaH = ia.height * CARD_H;
+    const hasIllustration = !!blueprint.illustration;
 
-    // 1 — Background
-    layer.add(new Konva.Rect({
-      x: 0, y: 0, width: CARD_W, height: CARD_H,
-      fill: bg.baseColor, id: 'background',
-    }));
+    // 1 — Background (skip when illustration fills the card as HTML layer behind canvas)
+    if (!hasIllustration) {
+      layer.add(new Konva.Rect({
+        x: 0, y: 0, width: CARD_W, height: CARD_H,
+        fill: bg.baseColor, id: 'background',
+      }));
+    }
 
     // 2 — Texture overlay (beneath pattern and frame). Seeded by the stable
     // `seed` (not `id`) so scattered dots/lines stay put across edits.
@@ -535,13 +538,13 @@ export const rendererStub: RendererAPI = {
       drawCornerMotif(layer, frame.cornerMotif, cx, cy, frameColor, bg.baseColor);
     }
 
-    // 6 — Illustration area (placeholder shown only when no illustration image is set)
-    layer.add(new Konva.Rect({
-      x: iaX, y: iaY, width: iaW, height: iaH,
-      fill: hexToRgba(palette.primaryAccent, 0.08),
-      id: 'illustration-bg',
-    }));
-    if (!blueprint.illustration) {
+    // 6 — Illustration area placeholder (only when no illustration)
+    if (!hasIllustration) {
+      layer.add(new Konva.Rect({
+        x: iaX, y: iaY, width: iaW, height: iaH,
+        fill: hexToRgba(palette.primaryAccent, 0.08),
+        id: 'illustration-bg',
+      }));
       layer.add(new Konva.Rect({
         x: iaX, y: iaY, width: iaW, height: iaH,
         stroke: hexToRgba(palette.border, 0.35), strokeWidth: 1,
@@ -555,9 +558,24 @@ export const rendererStub: RendererAPI = {
       }));
     }
 
-    // 7 — Symbols
+    // 7 — Symbols (on top of image, behind gradient overlays and text)
     for (const sym of symbols) {
       drawSymbol(layer, sym, palette.primaryAccent, palette.secondaryAccent, bg.baseColor);
+    }
+
+    // 7.5 — Title gradient overlay for readability (only when illustration fills background)
+    if (hasIllustration) {
+      const titleGradH = Math.min(
+        frame.thickness + frame.innerMargin * 2 + typography.titleSize + typography.bodySize + 36,
+        CARD_H * 0.4,
+      );
+      layer.add(new Konva.Rect({
+        x: 0, y: 0, width: CARD_W, height: titleGradH,
+        fillLinearGradientStartPoint: { x: 0, y: 0 },
+        fillLinearGradientEndPoint: { x: 0, y: titleGradH },
+        fillLinearGradientColorStops: [0, 'rgba(0,0,0,0.68)', 1, 'rgba(0,0,0,0)'],
+        listening: false,
+      }));
     }
 
     // 8 — Title
@@ -599,6 +617,22 @@ export const rendererStub: RendererAPI = {
     });
     layer.add(archetypeNode);
     textNodes.push(archetypeNode);
+
+    // 9.5 — Footer gradient overlay for readability (only when illustration fills background)
+    if (hasIllustration && footer.visible) {
+      const footerGradH = Math.min(
+        frame.thickness + frame.innerMargin + footer.size + 40,
+        CARD_H * 0.25,
+      );
+      const footerGradY = CARD_H - footerGradH;
+      layer.add(new Konva.Rect({
+        x: 0, y: footerGradY, width: CARD_W, height: footerGradH,
+        fillLinearGradientStartPoint: { x: 0, y: 0 },
+        fillLinearGradientEndPoint: { x: 0, y: footerGradH },
+        fillLinearGradientColorStops: [0, 'rgba(0,0,0,0)', 1, 'rgba(0,0,0,0.68)'],
+        listening: false,
+      }));
+    }
 
     // 10 — Footer
     if (footer.visible) {

@@ -1,6 +1,7 @@
 import type { AIClient } from './types';
 import type { Blueprint, SymbolDef } from '../types/blueprint';
 import { theFool, theMoon, aceOfWands, fixtureCards } from '../fixtures/cards';
+import { ILLUSTRATIONS } from '../illustrations/catalog';
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -58,8 +59,27 @@ function pickIllustration(prompt: string): string {
 export const mockAIClient: AIClient = {
   async generateCard(prompt: string): Promise<Blueprint> {
     await delay(500);
-    const bp = pickByKeyword(prompt);
-    return { ...bp, seed: crypto.randomUUID(), illustration: pickIllustration(prompt) };
+    const illustrationId = pickIllustration(prompt);
+    const illEntry = ILLUSTRATIONS.find((i) => i.id === illustrationId) ?? ILLUSTRATIONS[0];
+    const base = pickByKeyword(prompt);
+    return {
+      ...base,
+      id: crypto.randomUUID(),
+      seed: crypto.randomUUID(),
+      illustration: illustrationId,
+      identity: {
+        name: illEntry.name,
+        archetype: illEntry.tags[0]
+          ? illEntry.tags[0].charAt(0).toUpperCase() + illEntry.tags[0].slice(1)
+          : base.identity.archetype,
+        number: base.identity.number,
+        suit: base.identity.suit,
+      },
+      footer: {
+        ...base.footer,
+        text: illEntry.name.toUpperCase(),
+      },
+    };
   },
 
   async generateSymbol(description: string, _context: Blueprint): Promise<SymbolDef> {
