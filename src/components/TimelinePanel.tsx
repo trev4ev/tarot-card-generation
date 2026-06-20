@@ -1,64 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore, MAX_BRANCHES } from '../store';
-import { rendererStub } from '../renderer/stub';
 import { SLOT_COLORS } from '../slotColors';
 import type { Branch, TimelineNode } from '../types/blueprint';
-
-// ── Thumbnail cache ───────────────────────────────────────────────────────────
-const thumbnailCache = new Map<string, string>();
-
-// ── NodeThumbnail ─────────────────────────────────────────────────────────────
-
-function NodeThumbnail({ node, width, height }: { node: TimelineNode; width: number; height: number }) {
-  const [src, setSrc] = useState<string | null>(thumbnailCache.get(node.blueprint.id) ?? null);
-
-  useEffect(() => {
-    const cached = thumbnailCache.get(node.blueprint.id);
-    if (cached) {
-      setSrc(cached);
-      return;
-    }
-    let cancelled = false;
-    rendererStub.renderThumbnail(node.blueprint).then((dataURL) => {
-      if (!cancelled) {
-        thumbnailCache.set(node.blueprint.id, dataURL);
-        setSrc(dataURL);
-      }
-    }).catch(() => {});
-    return () => { cancelled = true; };
-  }, [node.blueprint]);
-
-  return (
-    <div
-      style={{
-        width,
-        height,
-        flexShrink: 0,
-        background: '#0f0f1e',
-        borderRadius: 3,
-        overflow: 'hidden',
-        border: '1px solid #2a2a4e',
-      }}
-    >
-      {src ? (
-        <img src={src} alt="thumbnail" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-      ) : (
-        <div
-          style={{
-            width: '100%',
-            height: '100%',
-            background: '#1a1a2e',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <span style={{ fontSize: 7, color: '#444' }}>···</span>
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ── HorizontalNodeCard ────────────────────────────────────────────────────────
 
@@ -75,8 +18,7 @@ interface HorizontalNodeCardProps {
   nodeRef: (el: HTMLDivElement | null) => void;
 }
 
-const THUMB_W = 34;
-const THUMB_H = 58;
+const NODE_W = 80;
 
 function HorizontalNodeCard({
   node,
@@ -93,7 +35,7 @@ function HorizontalNodeCard({
   const [hovered, setHovered] = useState(false);
   const cardRef = useRef<HTMLDivElement | null>(null);
   const highlight = isActive && isActiveBranch;
-  const showOverlay = hovered && showBranchButton && !isSelected;
+  const showBranchBtn = hovered && showBranchButton && !isSelected;
 
   useEffect(() => {
     if (isActive && cardRef.current) {
@@ -107,7 +49,23 @@ function HorizontalNodeCard({
     ? '#6ee7b7'
     : hovered
     ? '#3a3a5e'
-    : 'transparent';
+    : 'rgba(42, 42, 78, 0.6)';
+
+  const bgColor = highlight
+    ? 'rgba(45, 28, 90, 0.65)'
+    : isSelected
+    ? 'rgba(15, 50, 35, 0.55)'
+    : hovered
+    ? 'rgba(26, 26, 56, 0.65)'
+    : 'rgba(12, 12, 32, 0.55)';
+
+  const labelColor = highlight
+    ? '#ddd'
+    : isSelected
+    ? '#6ee7b7'
+    : hovered
+    ? '#bbb'
+    : '#666';
 
   return (
     <div
@@ -116,91 +74,95 @@ function HorizontalNodeCard({
       draggable
       style={{
         flexShrink: 0,
+        width: NODE_W,
+        alignSelf: 'stretch',
+        margin: '5px 0',
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
-        gap: 3,
+        position: 'relative',
+        borderRadius: 4,
+        border: `2px solid ${borderColor}`,
+        background: bgColor,
         cursor: isSelected ? 'grab' : 'pointer',
-        padding: '0 3px',
+        transition: 'border-color 0.12s, background 0.12s',
         userSelect: 'none',
+        overflow: 'hidden',
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={onSelect}
       onDragStart={onDragStart}
     >
+      {/* Change label */}
       <div
         style={{
-          border: `2px solid ${borderColor}`,
-          borderRadius: 4,
-          position: 'relative',
-          flexShrink: 0,
-          transition: 'border-color 0.12s',
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '5px 6px',
         }}
       >
-        <NodeThumbnail node={node} width={THUMB_W} height={THUMB_H} />
-
-        {showOverlay && (
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'rgba(8, 8, 24, 0.82)',
-              borderRadius: 2,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 3,
-              padding: '3px',
-            }}
-          >
-            <button
-              onClick={(e) => { e.stopPropagation(); onBranch(); }}
-              title="Branch from here"
-              style={{
-                background: '#2a2a4e',
-                border: '1px solid #4a3f7e',
-                color: '#c4b5fd',
-                borderRadius: 2,
-                padding: '2px 0',
-                fontSize: 8,
-                cursor: 'pointer',
-                width: '100%',
-                textAlign: 'center',
-                lineHeight: 1.2,
-              }}
-            >
-              ⎇ branch
-            </button>
-          </div>
-        )}
+        <div
+          style={{
+            fontSize: 10,
+            lineHeight: 1.35,
+            color: labelColor,
+            textAlign: 'center',
+            overflowWrap: 'break-word',
+            wordBreak: 'break-word',
+            overflow: 'hidden',
+            display: '-webkit-box',
+            WebkitLineClamp: 4,
+            WebkitBoxOrient: 'vertical',
+            transition: 'color 0.12s',
+          }}
+        >
+          {node.label}
+        </div>
       </div>
 
+      {/* Active indicator bar */}
       <div
         style={{
-          width: 4,
-          height: 4,
-          borderRadius: '50%',
-          background: highlight ? slotColor : isSelected ? '#6ee7b7' : 'transparent',
+          height: 2,
           flexShrink: 0,
+          background: highlight ? slotColor : isSelected ? '#6ee7b7' : 'transparent',
+          transition: 'background 0.12s',
         }}
       />
 
-      <div
-        style={{
-          fontSize: 7,
-          color: highlight ? '#bbb' : isSelected ? '#6ee7b7' : '#555',
-          maxWidth: THUMB_W + 6,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          textAlign: 'center',
-          lineHeight: 1,
-        }}
-      >
-        {node.label}
-      </div>
+      {/* Branch button overlay */}
+      {showBranchBtn && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'rgba(8, 8, 24, 0.88)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 2,
+          }}
+        >
+          <button
+            onClick={(e) => { e.stopPropagation(); onBranch(); }}
+            title="Branch from here"
+            style={{
+              background: '#2a2a4e',
+              border: '1px solid #4a3f7e',
+              color: '#c4b5fd',
+              borderRadius: 2,
+              padding: '3px 8px',
+              fontSize: 8,
+              cursor: 'pointer',
+              lineHeight: 1.2,
+            }}
+          >
+            ⎇ branch
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -224,13 +186,11 @@ function HorizontalBranchRow({ branch, slotIndex, isActiveBranch, canBranch }: H
   const [renameValue, setRenameValue] = useState(branch.label);
   const [dragOverInsertAfterIdx, setDragOverInsertAfterIdx] = useState<number | null>(null);
   const [selectedNodeIds, setSelectedNodeIds] = useState<ReadonlySet<string>>(new Set());
-  // marquee: x coords relative to scrollable content (accounts for scrollLeft)
   const [marquee, setMarquee] = useState<{ startX: number; endX: number } | null>(null);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const nodeElRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-  // Non-stale ref to marquee.startX for use inside event handler effects
   const marqueeStartXRef = useRef<number | null>(null);
 
   const color = SLOT_COLORS[slotIndex] ?? '#9c8fc0';
@@ -272,7 +232,6 @@ function HorizontalBranchRow({ branch, slotIndex, isActiveBranch, canBranch }: H
     }
 
     function onMouseUp(e: MouseEvent) {
-      // A tiny movement = click on background → clear selection
       const startX = marqueeStartXRef.current ?? 0;
       const container = scrollContainerRef.current;
       if (container) {
@@ -324,7 +283,6 @@ function HorizontalBranchRow({ branch, slotIndex, isActiveBranch, canBranch }: H
   function buildDragStart(node: TimelineNode) {
     return (e: React.DragEvent<HTMLDivElement>) => {
       e.stopPropagation();
-      // If this node is part of a multi-selection, drag the whole selection
       const nodeIds = selectedNodeIds.has(node.id) && selectedNodeIds.size > 1
         ? [...selectedNodeIds]
         : [node.id];
@@ -348,7 +306,7 @@ function HorizontalBranchRow({ branch, slotIndex, isActiveBranch, canBranch }: H
         background: isActiveBranch ? 'rgba(26, 22, 50, 0.7)' : 'transparent',
       }}
     >
-      {/* Left: branch identity (fixed width, non-scrolling) */}
+      {/* Left: branch identity */}
       <div
         style={{
           width: 140,
@@ -432,14 +390,13 @@ function HorizontalBranchRow({ branch, slotIndex, isActiveBranch, canBranch }: H
           flex: 1,
           overflowX: 'auto',
           display: 'flex',
-          alignItems: 'center',
-          padding: '6px 8px',
+          alignItems: 'stretch',
+          padding: '0 8px',
           gap: 0,
           position: 'relative',
           userSelect: 'none',
         }}
         onMouseDown={(e) => {
-          // Only start marquee on background clicks (not on node cards)
           const target = e.target as HTMLElement;
           if (target.closest('[data-node-card]')) return;
           e.preventDefault();
@@ -496,7 +453,7 @@ function HorizontalBranchRow({ branch, slotIndex, isActiveBranch, canBranch }: H
             <div
               key={`dz-${node.id}`}
               style={{
-                width: 14,
+                width: 12,
                 alignSelf: 'stretch',
                 flexShrink: 0,
                 display: 'flex',
@@ -515,7 +472,7 @@ function HorizontalBranchRow({ branch, slotIndex, isActiveBranch, canBranch }: H
               <div
                 style={{
                   width: 2,
-                  height: 38,
+                  height: 32,
                   borderRadius: 1,
                   background: isDropActive ? '#6ee7b7' : 'rgba(90, 80, 140, 0.25)',
                   transition: 'background 0.1s',

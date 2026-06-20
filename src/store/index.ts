@@ -342,7 +342,7 @@ export const useStore = create<StoreState>((set, get) => ({
     const diffs = diffBlueprints(parentNode.blueprint, node.blueprint);
     if (diffs.length === 0) return;
     const patch = buildPatchFromDiffs(diffs);
-    state.patchBlueprintOnBranch(toBranchId, patch, `↩ from ${fromBranch.label}: ${node.label}`);
+    state.patchBlueprintOnBranch(toBranchId, patch, node.label);
   },
 
   insertEditAt: (fromBranchId, nodeId, toBranchId, insertAfterNodeId) => {
@@ -388,7 +388,7 @@ export const useStore = create<StoreState>((set, get) => ({
         id: crypto.randomUUID(),
         blueprint: { ...deepMerge(prevInserted.blueprint, buildPatchFromDiffs(diffs)), id: crypto.randomUUID() },
         parentId: prevInserted.id,
-        label: `↩ from ${fromBranch.label}: ${node.label}`,
+        label: node.label,
         timestamp: Date.now(),
       };
       insertedNodes.push(newNode);
