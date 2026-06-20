@@ -26,7 +26,7 @@ export const theFool: Blueprint = {
     letterSpacing: 2,
     titleCase: 'upper',
     titleAlign: 'center',
-    titlePosition: 'top',
+
   },
   frame: {
     style: 'simple',
@@ -71,7 +71,7 @@ export const theFool: Blueprint = {
     visible: true,
   },
   layout: {
-    titlePosition: 'top',
+
     illustrationArea: { x: 0.05, y: 0.15, width: 0.9, height: 0.65 },
   },
 };
@@ -102,7 +102,7 @@ export const theMoon: Blueprint = {
     letterSpacing: 3,
     titleCase: 'title',
     titleAlign: 'center',
-    titlePosition: 'top',
+
   },
   frame: {
     style: 'gothic',
@@ -137,7 +137,7 @@ export const theMoon: Blueprint = {
     visible: true,
   },
   layout: {
-    titlePosition: 'top',
+
     illustrationArea: { x: 0.06, y: 0.15, width: 0.88, height: 0.65 },
   },
 };
@@ -168,7 +168,7 @@ export const aceOfWands: Blueprint = {
     letterSpacing: 1.5,
     titleCase: 'title',
     titleAlign: 'center',
-    titlePosition: 'bottom',
+
   },
   frame: {
     style: 'ornate',
@@ -213,7 +213,7 @@ export const aceOfWands: Blueprint = {
     visible: true,
   },
   layout: {
-    titlePosition: 'bottom',
+
     illustrationArea: { x: 0.07, y: 0.1, width: 0.86, height: 0.72 },
   },
 };

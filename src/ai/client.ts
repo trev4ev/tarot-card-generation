@@ -94,7 +94,6 @@ const VALID_PATTERNS = new Set<string>([
 const VALID_WEIGHTS = new Set<string>(['300', '400', '500', '600', '700']);
 const VALID_TITLE_CASE = new Set<string>(['upper', 'title', 'asGenerated']);
 const VALID_TITLE_ALIGN = new Set<string>(['left', 'center', 'right']);
-const VALID_TITLE_POS = new Set<string>(['top', 'bottom', 'overlay']);
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 
@@ -168,7 +167,6 @@ function sanitize(raw: unknown): AICardResponse {
       letterSpacing: clamp(typo.letterSpacing,         0,  10,  2),
       titleCase:     pick<'upper' | 'title' | 'asGenerated'>(typo.titleCase,  VALID_TITLE_CASE,  'upper'),
       titleAlign:    pick<'left' | 'center' | 'right'>(typo.titleAlign, VALID_TITLE_ALIGN, 'center'),
-      titlePosition: pick<'top' | 'bottom' | 'overlay'>(typo.titlePosition, VALID_TITLE_POS, 'top'),
     },
 
     frame: {
@@ -213,7 +211,6 @@ function sanitize(raw: unknown): AICardResponse {
 // ── Map sanitized response → Blueprint ───────────────────────────────────────
 
 function responseToBlueprintPatch(r: AICardResponse): Omit<Blueprint, 'id' | 'seed'> {
-  const titlePosition = r.typography.titlePosition;
   return {
     illustration: r.illustrationId,
     identity: r.identity,
@@ -224,7 +221,6 @@ function responseToBlueprintPatch(r: AICardResponse): Omit<Blueprint, 'id' | 'se
     footer: r.footer,
     symbols: r.symbols,
     layout: {
-      titlePosition: titlePosition === 'overlay' ? 'top' : titlePosition,
       illustrationArea: { x: 0.05, y: 0.14, width: 0.9, height: 0.66 },
     },
   };
@@ -261,8 +257,7 @@ Return a JSON object with this exact shape (wrapped in a \`\`\`json\`\`\` block)
     "bodyWeight": "300"|"400"|"500"|"600"|"700",
     "letterSpacing": number (0-6),
     "titleCase": "upper"|"title"|"asGenerated",
-    "titleAlign": "left"|"center"|"right",
-    "titlePosition": "top"|"bottom"
+    "titleAlign": "left"|"center"|"right"
   },
   "frame": {
     "style": "simple"|"ornate"|"celtic"|"gothic"|"art-nouveau"|"minimal"|"double",

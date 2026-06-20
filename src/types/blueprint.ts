@@ -56,7 +56,6 @@ export type Blueprint = {
     letterSpacing: number;
     titleCase: 'upper' | 'title' | 'asGenerated';
     titleAlign: 'left' | 'center' | 'right';
-    titlePosition: 'top' | 'bottom' | 'overlay';
   };
   frame: {
     style: FrameStyleEnum;
@@ -80,7 +79,6 @@ export type Blueprint = {
     visible: boolean;
   };
   layout: {
-    titlePosition: 'top' | 'bottom';
     illustrationArea: { x: number; y: number; width: number; height: number };
   };
 };
