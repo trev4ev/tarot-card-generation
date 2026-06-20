@@ -31,6 +31,16 @@ const PATTERNS: PatternEnum[] = [
   'none', 'stars', 'pentagrams', 'circles', 'diamonds', 'waves', 'vines', 'runes',
 ];
 
+const SYMBOL_PRESETS = [
+  { kind: 'sun',    label: 'Sun'    },
+  { kind: 'moon',   label: 'Moon'   },
+  { kind: 'star',   label: 'Star'   },
+  { kind: 'flame',  label: 'Flame'  },
+  { kind: 'flower', label: 'Flower' },
+  { kind: 'staff',  label: 'Staff'  },
+  { kind: 'wolf',   label: 'Wolf'   },
+] as const;
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 const panelStyle: React.CSSProperties = {
@@ -213,7 +223,7 @@ function TextRow({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function ControlsPanel() {
+export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const prompt = useStore((s) => s.prompt);
   const setPrompt = useStore((s) => s.setPrompt);
   const isGenerating = useStore((s) => s.isGenerating);
@@ -229,8 +239,6 @@ export function ControlsPanel() {
   const removeSymbol = useStore((s) => s.removeSymbol);
   const bp = useStore((s) => s.activeBlueprint());
   const [error, setError] = useState<string | null>(null);
-  const [symDesc, setSymDesc] = useState('');
-  const [addingSymbol, setAddingSymbol] = useState(false);
 
   async function handleGenerate() {
     if (!prompt.trim() || isGenerating) return;
@@ -292,22 +300,21 @@ export function ControlsPanel() {
     updateLiveBlueprint({ symbols });
   }
 
-  async function handleAddSymbol() {
-    if (!symDesc.trim() || !bp || addingSymbol) return;
-    setAddingSymbol(true);
-    try {
-      const sym = await aiClient.generateSymbol(symDesc, bp);
-      addSymbol(sym);
-      setSelectedElement({ type: 'symbol', symbolId: sym.id });
-      setSymDesc('');
-    } catch {
-      // ignore
-    } finally {
-      setAddingSymbol(false);
-    }
+  function addPresetSymbol(kind: string) {
+    const sym: SymbolDef = {
+      id: crypto.randomUUID(),
+      kind,
+      x: 0.5,
+      y: 0.5,
+      scale: 1,
+      opacity: 1,
+      flipX: false,
+      flipY: false,
+    };
+    addSymbol(sym);
+    setSelectedElement({ type: 'symbol', symbolId: sym.id });
   }
 
-  // Derive selected symbol for controls
   const selectedSym =
     selectedElement?.type === 'symbol' && bp
       ? bp.symbols.find((s) => s.id === selectedElement.symbolId) ?? null
@@ -319,6 +326,40 @@ export function ControlsPanel() {
     : selectedElement?.type === 'frame' ? 'Frame'
     : selectedElement?.type === 'background' ? 'Background'
     : null;
+
+  // ── Collapsed strip ───────────────────────────────────────────────────────
+  if (!open) {
+    return (
+      <aside
+        style={{
+          width: 36,
+          minWidth: 36,
+          background: '#13122a',
+          borderRight: '1px solid #2a2a4e',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          flexShrink: 0,
+        }}
+      >
+        <button
+          onClick={onToggle}
+          title="Expand controls"
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#c4b5fd',
+            cursor: 'pointer',
+            padding: '12px 0',
+            fontSize: '18px',
+            lineHeight: 1,
+          }}
+        >
+          ›
+        </button>
+      </aside>
+    );
+  }
 
   return (
     <aside
@@ -343,9 +384,27 @@ export function ControlsPanel() {
           color: '#c4b5fd',
           letterSpacing: '0.1em',
           textTransform: 'uppercase',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
         }}
       >
         Controls
+        <button
+          onClick={onToggle}
+          title="Collapse panel"
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#555',
+            cursor: 'pointer',
+            fontSize: '16px',
+            lineHeight: 1,
+            padding: '0',
+          }}
+        >
+          ‹
+        </button>
       </div>
 
       {/* Selection */}
@@ -443,36 +502,6 @@ export function ControlsPanel() {
         </div>
       )}
 
-      {/* Add Symbol */}
-      {bp && (
-        <div style={{ background: '#16213e', borderBottom: '1px solid #2a2a4e', padding: '8px 16px', display: 'flex', gap: '6px', alignItems: 'center' }}>
-          <input
-            type="text"
-            value={symDesc}
-            onChange={(e) => setSymDesc(e.target.value)}
-            placeholder="Add symbol…"
-            onKeyDown={(e) => { if (e.key === 'Enter') void handleAddSymbol(); }}
-            style={{ flex: 1, fontSize: '12px', padding: '4px 7px' }}
-          />
-          <button
-            onClick={() => void handleAddSymbol()}
-            disabled={!symDesc.trim() || addingSymbol}
-            style={{
-              background: addingSymbol || !symDesc.trim() ? '#3a3458' : '#6d5fb5',
-              color: '#fff',
-              border: 'none',
-              padding: '4px 10px',
-              borderRadius: '4px',
-              fontSize: '12px',
-              cursor: addingSymbol || !symDesc.trim() ? 'not-allowed' : 'pointer',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {addingSymbol ? '…' : '+ Add'}
-          </button>
-        </div>
-      )}
-
       {/* AI Generation */}
       <Section title="AI Generation">
         <Row label="Prompt">
@@ -501,7 +530,7 @@ export function ControlsPanel() {
             transition: 'background 0.15s',
           }}
         >
-          {isGenerating ? 'Generating…' : 'Generate (⌘↵)'}
+          {isGenerating ? 'Generating…' : 'Generate (⌘↵ / Ctrl↵)'}
         </button>
         {error && (
           <p style={{ fontSize: '11px', color: '#f87171', lineHeight: 1.4 }}>{error}</p>
@@ -557,6 +586,34 @@ export function ControlsPanel() {
               onLiveChange={(v) => livePalette('border', v)}
               onChange={(v) => patchPalette('border', v)}
             />
+          </Section>
+
+          {/* Symbols */}
+          <Section title="Symbols">
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+              {SYMBOL_PRESETS.map(({ kind, label }) => (
+                <button
+                  key={kind}
+                  onClick={() => addPresetSymbol(kind)}
+                  style={{
+                    background: '#1e1d3a',
+                    border: '1px solid #3a3458',
+                    color: '#c4b5fd',
+                    padding: '4px 10px',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {bp.symbols.length > 0 && (
+              <div style={{ fontSize: '10px', color: '#555', lineHeight: 1.5 }}>
+                {bp.symbols.length} symbol{bp.symbols.length !== 1 ? 's' : ''} on card — click one on the canvas to select
+              </div>
+            )}
           </Section>
 
           {/* Frame */}
@@ -730,7 +787,11 @@ export function ControlsPanel() {
       {/* Reset */}
       <div style={{ padding: '12px 16px', marginTop: 'auto', borderTop: '1px solid #2a2a4e' }}>
         <button
-          onClick={resetToFixture}
+          onClick={() => {
+            if (window.confirm('Reset to fixture? All branches and generations will be lost.')) {
+              resetToFixture();
+            }
+          }}
           style={{
             width: '100%',
             background: 'transparent',
@@ -739,6 +800,7 @@ export function ControlsPanel() {
             padding: '6px 10px',
             borderRadius: '4px',
             fontSize: '12px',
+            cursor: 'pointer',
           }}
         >
           Reset to Fixture

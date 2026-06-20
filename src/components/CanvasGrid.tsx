@@ -4,7 +4,7 @@ import { Stage } from 'react-konva';
 import { useStore } from '../store';
 import { rendererStub } from '../renderer/stub';
 import { SLOT_COLORS } from '../slotColors';
-import type { Branch, Blueprint, ElementRef } from '../types/blueprint';
+import type { Branch, Blueprint, ElementRef, SymbolDef } from '../types/blueprint';
 
 const CARD_W = 300;
 const CARD_H = 520;
@@ -122,15 +122,41 @@ interface BranchCardProps {
   selectedElement: ElementRef | null;
   onActivate: () => void;
   onElementClick: (el: ElementRef | null) => void;
+  onSymbolDragLive: (symbols: SymbolDef[]) => void;
+  onSymbolDragCommit: (symbolId: string, x: number, y: number) => void;
 }
 
-function BranchCard({ branch, blueprint, isActive, slotIndex, selectedElement, onActivate, onElementClick }: BranchCardProps) {
+function BranchCard({
+  branch, blueprint, isActive, slotIndex, selectedElement,
+  onActivate, onElementClick, onSymbolDragLive, onSymbolDragCommit,
+}: BranchCardProps) {
   const slotColor = SLOT_COLORS[slotIndex] ?? '#7c6f9f';
   const containerRef = useRef<HTMLDivElement | null>(null);
   const innerRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<Konva.Stage | null>(null);
   const selLayerRef = useRef<Konva.Layer | null>(null);
   const [scale, setScale] = useState(1);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Stable refs so window listeners always see the latest values
+  const blueprintRef = useRef(blueprint);
+  blueprintRef.current = blueprint;
+  const onSymbolDragLiveRef = useRef(onSymbolDragLive);
+  onSymbolDragLiveRef.current = onSymbolDragLive;
+  const onSymbolDragCommitRef = useRef(onSymbolDragCommit);
+  onSymbolDragCommitRef.current = onSymbolDragCommit;
+  const onElementClickRef = useRef(onElementClick);
+  onElementClickRef.current = onElementClick;
+
+  // Drag tracking
+  const draggingRef = useRef<{
+    symbolId: string;
+    startClientX: number;
+    startClientY: number;
+    origX: number;
+    origY: number;
+  } | null>(null);
+  const hasDraggedRef = useRef(false);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -146,15 +172,15 @@ function BranchCard({ branch, blueprint, isActive, slotIndex, selectedElement, o
     return () => observer.disconnect();
   }, []);
 
-  // Main blueprint render — always destroys all layers
+  // Main blueprint render
   useEffect(() => {
     if (stageRef.current && blueprint) {
       rendererStub.render(blueprint, stageRef.current);
-      selLayerRef.current = null; // destroyed by render's destroyChildren
+      selLayerRef.current = null;
     }
   }, [blueprint]);
 
-  // Selection overlay — runs after main render when blueprint or selection changes
+  // Selection overlay
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
@@ -173,7 +199,52 @@ function BranchCard({ branch, blueprint, isActive, slotIndex, selectedElement, o
     selLayer.batchDraw();
   }, [selectedElement, blueprint]);
 
-  function handleClick(e: React.MouseEvent<HTMLDivElement>) {
+  // Window-level drag handlers (stable, use refs to access latest state)
+  useEffect(() => {
+    function handleMouseMove(e: MouseEvent) {
+      const drag = draggingRef.current;
+      if (!drag || !innerRef.current) return;
+      const rect = innerRef.current.getBoundingClientRect();
+      const dx = (e.clientX - drag.startClientX) / rect.width;
+      const dy = (e.clientY - drag.startClientY) / rect.height;
+      if (!hasDraggedRef.current && Math.abs(dx) < 0.005 && Math.abs(dy) < 0.005) return;
+      hasDraggedRef.current = true;
+      const newX = Math.max(0, Math.min(1, drag.origX + dx));
+      const newY = Math.max(0, Math.min(1, drag.origY + dy));
+      const symbols = blueprintRef.current.symbols.map((s) =>
+        s.id === drag.symbolId ? { ...s, x: newX, y: newY } : s
+      );
+      onSymbolDragLiveRef.current(symbols);
+    }
+
+    function handleMouseUp(e: MouseEvent) {
+      const drag = draggingRef.current;
+      if (!drag) return;
+      if (hasDraggedRef.current && innerRef.current) {
+        const rect = innerRef.current.getBoundingClientRect();
+        const dx = (e.clientX - drag.startClientX) / rect.width;
+        const dy = (e.clientY - drag.startClientY) / rect.height;
+        const newX = Math.max(0, Math.min(1, drag.origX + dx));
+        const newY = Math.max(0, Math.min(1, drag.origY + dy));
+        onSymbolDragCommitRef.current(drag.symbolId, newX, newY);
+      } else {
+        // No significant movement: treat as a click to select
+        onElementClickRef.current({ type: 'symbol', symbolId: drag.symbolId });
+      }
+      draggingRef.current = null;
+      hasDraggedRef.current = false;
+      setIsDragging(false);
+    }
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  function handleMouseDown(e: React.MouseEvent<HTMLDivElement>) {
     onActivate();
     const inner = innerRef.current;
     if (!inner || !blueprint) return;
@@ -182,13 +253,32 @@ function BranchCard({ branch, blueprint, isActive, slotIndex, selectedElement, o
     const x = (e.clientX - rect.left) * (CARD_W / rect.width);
     const y = (e.clientY - rect.top) * (CARD_H / rect.height);
     const hit = rendererStub.hitTest(x, y, blueprint);
-    onElementClick(hit?.type === 'background' ? null : hit);
+
+    if (hit?.type === 'symbol') {
+      const sym = blueprint.symbols.find((s) => s.id === hit.symbolId);
+      if (sym) {
+        draggingRef.current = {
+          symbolId: hit.symbolId,
+          startClientX: e.clientX,
+          startClientY: e.clientY,
+          origX: sym.x,
+          origY: sym.y,
+        };
+        hasDraggedRef.current = false;
+        setIsDragging(true);
+        e.preventDefault();
+        return;
+      }
+    }
+
+    // Non-symbol: select immediately
+    onElementClick(hit?.type === 'background' ? null : hit ?? null);
   }
 
   return (
     <div
       ref={containerRef}
-      onClick={handleClick}
+      onMouseDown={handleMouseDown}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -196,12 +286,13 @@ function BranchCard({ branch, blueprint, isActive, slotIndex, selectedElement, o
         width: '100%',
         height: '100%',
         position: 'relative',
-        cursor: 'pointer',
+        cursor: isDragging ? 'grabbing' : 'pointer',
         border: isActive ? `2px solid ${slotColor}` : '2px solid transparent',
         borderRadius: '10px',
         boxSizing: 'border-box',
         outline: isActive ? '1px solid #c4b5fd' : 'none',
         transition: 'border-color 0.15s, outline 0.15s',
+        userSelect: isDragging ? 'none' : undefined,
       }}
     >
       <div
@@ -276,6 +367,8 @@ export function CanvasGrid() {
   const setActiveBranch = useStore((s) => s.setActiveBranch);
   const selectedElement = useStore((s) => s.selectedElement);
   const setSelectedElement = useStore((s) => s.setSelectedElement);
+  const updateLiveBlueprint = useStore((s) => s.updateLiveBlueprint);
+  const updateSymbol = useStore((s) => s.updateSymbol);
 
   const slots = Array.from({ length: 4 }, (_, i) => branches[i] ?? null);
 
@@ -311,6 +404,8 @@ export function CanvasGrid() {
             selectedElement={isActive ? selectedElement : null}
             onActivate={() => setActiveBranch(branch.id)}
             onElementClick={(el) => setSelectedElement(el)}
+            onSymbolDragLive={(symbols) => updateLiveBlueprint({ symbols })}
+            onSymbolDragCommit={(symbolId, x, y) => updateSymbol(symbolId, { x, y })}
           />
         );
       })}

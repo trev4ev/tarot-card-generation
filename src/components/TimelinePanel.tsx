@@ -122,7 +122,6 @@ function HorizontalNodeCard({
       onMouseLeave={() => setHovered(false)}
       onClick={onSelect}
     >
-      {/* Thumbnail with colored border when active, plus hover overlay for actions */}
       <div
         style={{
           border: highlight
@@ -403,12 +402,52 @@ function HorizontalBranchRow({ branch, slotIndex, isActiveBranch, canBranch, all
 
 // ── TimelinePanel ──────────────────────────────────────────────────────────────
 
-export function TimelinePanel() {
+export function TimelinePanel({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const branches = useStore((s) => s.branches);
   const activeBranchId = useStore((s) => s.activeBranchId);
 
   const canBranch = branches.length < 4;
   const totalNodes = branches.reduce((acc, b) => acc + b.nodes.length, 0);
+
+  // ── Collapsed strip ─────────────────────────────────────────────────────────
+  if (!open) {
+    return (
+      <div
+        style={{
+          height: 28,
+          flexShrink: 0,
+          background: '#16213e',
+          borderTop: '1px solid #2a2a4e',
+          display: 'flex',
+          alignItems: 'center',
+          padding: '0 16px',
+          gap: 8,
+        }}
+      >
+        <button
+          onClick={onToggle}
+          title="Expand timeline"
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#9c8fc0',
+            cursor: 'pointer',
+            fontSize: 12,
+            lineHeight: 1,
+            padding: 0,
+          }}
+        >
+          ▲
+        </button>
+        <span style={{ fontSize: 10, fontWeight: 600, color: '#555', letterSpacing: '0.08em' }}>
+          TIMELINE
+        </span>
+        <span style={{ fontSize: 10, color: '#444' }}>
+          {branches.length} branch{branches.length !== 1 ? 'es' : ''} · {totalNodes} node{totalNodes !== 1 ? 's' : ''}
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -435,11 +474,30 @@ export function TimelinePanel() {
         <span style={{ fontSize: 11, fontWeight: 600, color: '#9c8fc0', letterSpacing: '0.08em' }}>
           TIMELINE
         </span>
-        <span style={{ fontSize: 10, color: '#555' }}>
-          {branches.length} branch{branches.length !== 1 ? 'es' : ''}
-          {' · '}
-          {totalNodes} node{totalNodes !== 1 ? 's' : ''}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 10, color: '#555' }}>
+            {branches.length} branch{branches.length !== 1 ? 'es' : ''}
+            {' · '}
+            {totalNodes} node{totalNodes !== 1 ? 's' : ''}
+            {' · '}
+            <span style={{ color: '#444' }}>⌘Z undo</span>
+          </span>
+          <button
+            onClick={onToggle}
+            title="Collapse timeline"
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#555',
+              cursor: 'pointer',
+              fontSize: 12,
+              lineHeight: 1,
+              padding: 0,
+            }}
+          >
+            ▼
+          </button>
+        </div>
       </div>
 
       {/* One row per existing branch — rows only appear when the branch exists */}

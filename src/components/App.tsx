@@ -1,8 +1,25 @@
+import { useState, useEffect } from 'react';
 import { CanvasGrid } from './CanvasGrid';
 import { ControlsPanel } from './ControlsPanel';
 import { TimelinePanel } from './TimelinePanel';
+import { useStore } from '../store';
 
 export function App() {
+  const [leftOpen, setLeftOpen] = useState(true);
+  const [bottomOpen, setBottomOpen] = useState(true);
+  const undo = useStore((s) => s.undo);
+  const redo = useStore((s) => s.redo);
+
+  useEffect(() => {
+    function handler(e: KeyboardEvent) {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+      if ((e.key === 'z' && e.shiftKey) || e.key === 'y') { e.preventDefault(); redo(); }
+    }
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [undo, redo]);
+
   return (
     <div
       style={{
@@ -14,7 +31,6 @@ export function App() {
         background: '#1a1a2e',
       }}
     >
-      {/* Top: Controls (left) + Canvas grid (center) */}
       <div
         style={{
           flex: 1,
@@ -23,7 +39,7 @@ export function App() {
           minHeight: 0,
         }}
       >
-        <ControlsPanel />
+        <ControlsPanel open={leftOpen} onToggle={() => setLeftOpen((v) => !v)} />
         <main
           style={{
             flex: 1,
@@ -37,9 +53,7 @@ export function App() {
           <CanvasGrid />
         </main>
       </div>
-
-      {/* Bottom: Timeline spanning full width */}
-      <TimelinePanel />
+      <TimelinePanel open={bottomOpen} onToggle={() => setBottomOpen((v) => !v)} />
     </div>
   );
 }
