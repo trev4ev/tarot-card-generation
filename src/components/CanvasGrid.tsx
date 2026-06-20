@@ -3,6 +3,7 @@ import Konva from 'konva';
 import { Stage } from 'react-konva';
 import { useStore } from '../store';
 import { rendererStub } from '../renderer/stub';
+import { SLOT_COLORS } from '../slotColors';
 import type { Branch, Blueprint, ElementRef } from '../types/blueprint';
 
 const CARD_W = 300;
@@ -117,12 +118,14 @@ interface BranchCardProps {
   branch: Branch;
   blueprint: Blueprint;
   isActive: boolean;
+  slotIndex: number;
   selectedElement: ElementRef | null;
   onActivate: () => void;
   onElementClick: (el: ElementRef | null) => void;
 }
 
-function BranchCard({ branch, blueprint, isActive, selectedElement, onActivate, onElementClick }: BranchCardProps) {
+function BranchCard({ branch, blueprint, isActive, slotIndex, selectedElement, onActivate, onElementClick }: BranchCardProps) {
+  const slotColor = SLOT_COLORS[slotIndex] ?? '#7c6f9f';
   const containerRef = useRef<HTMLDivElement | null>(null);
   const innerRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<Konva.Stage | null>(null);
@@ -194,7 +197,7 @@ function BranchCard({ branch, blueprint, isActive, selectedElement, onActivate, 
         height: '100%',
         position: 'relative',
         cursor: 'pointer',
-        border: isActive ? '2px solid #7c6f9f' : '2px solid transparent',
+        border: isActive ? `2px solid ${slotColor}` : '2px solid transparent',
         borderRadius: '10px',
         boxSizing: 'border-box',
         outline: isActive ? '1px solid #c4b5fd' : 'none',
@@ -252,7 +255,7 @@ function BranchCard({ branch, blueprint, isActive, selectedElement, onActivate, 
           textAlign: 'center',
           fontSize: '11px',
           fontWeight: isActive ? 600 : 400,
-          color: isActive ? '#c4b5fd' : '#9c8fc0',
+          color: isActive ? slotColor : '#9c8fc0',
           background: 'rgba(19,18,42,0.7)',
           borderRadius: '4px',
           padding: '2px 6px',
@@ -304,6 +307,7 @@ export function CanvasGrid() {
             branch={branch}
             blueprint={activeNode.blueprint}
             isActive={isActive}
+            slotIndex={i}
             selectedElement={isActive ? selectedElement : null}
             onActivate={() => setActiveBranch(branch.id)}
             onElementClick={(el) => setSelectedElement(el)}

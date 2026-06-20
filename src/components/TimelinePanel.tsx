@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { rendererStub } from '../renderer/stub';
+import { SLOT_COLORS } from '../slotColors';
 import type { Branch, TimelineNode } from '../types/blueprint';
 
 // ── Thumbnail cache ───────────────────────────────────────────────────────────
@@ -8,7 +9,7 @@ const thumbnailCache = new Map<string, string>();
 
 // ── NodeThumbnail ─────────────────────────────────────────────────────────────
 
-function NodeThumbnail({ node }: { node: TimelineNode }) {
+function NodeThumbnail({ node, width, height }: { node: TimelineNode; width: number; height: number }) {
   const [src, setSrc] = useState<string | null>(thumbnailCache.get(node.blueprint.id) ?? null);
 
   useEffect(() => {
@@ -23,30 +24,24 @@ function NodeThumbnail({ node }: { node: TimelineNode }) {
         thumbnailCache.set(node.blueprint.id, dataURL);
         setSrc(dataURL);
       }
-    }).catch(() => {
-      // ignore thumbnail errors
-    });
+    }).catch(() => {});
     return () => { cancelled = true; };
   }, [node.blueprint]);
 
   return (
     <div
       style={{
-        width: 48,
-        height: 83,
+        width,
+        height,
         flexShrink: 0,
         background: '#0f0f1e',
-        borderRadius: '4px',
+        borderRadius: 3,
         overflow: 'hidden',
         border: '1px solid #2a2a4e',
       }}
     >
       {src ? (
-        <img
-          src={src}
-          alt="thumbnail"
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-        />
+        <img src={src} alt="thumbnail" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
       ) : (
         <div
           style={{
@@ -58,221 +53,198 @@ function NodeThumbnail({ node }: { node: TimelineNode }) {
             justifyContent: 'center',
           }}
         >
-          <span style={{ fontSize: '8px', color: '#444' }}>...</span>
+          <span style={{ fontSize: 7, color: '#444' }}>···</span>
         </div>
       )}
     </div>
   );
 }
 
-// ── NodeRow ────────────────────────────────────────────────────────────────────
+// ── HorizontalNodeCard ────────────────────────────────────────────────────────
 
 interface TransferTarget {
   id: string;
   label: string;
 }
 
-interface NodeRowProps {
+interface HorizontalNodeCardProps {
   node: TimelineNode;
   isActive: boolean;
   isActiveBranch: boolean;
   showBranchButton: boolean;
   transferTargets: TransferTarget[];
+  slotColor: string;
   onSelect: () => void;
   onBranch: () => void;
   onTransfer: (toBranchId: string) => void;
 }
 
-function NodeRow({
-  node, isActive, isActiveBranch, showBranchButton,
-  transferTargets, onSelect, onBranch, onTransfer,
-}: NodeRowProps) {
+const THUMB_W = 34;
+const THUMB_H = 58;
+
+function HorizontalNodeCard({
+  node,
+  isActive,
+  isActiveBranch,
+  showBranchButton,
+  transferTargets,
+  slotColor,
+  onSelect,
+  onBranch,
+  onTransfer,
+}: HorizontalNodeCardProps) {
   const [hovered, setHovered] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-  const liRef = useRef<HTMLLIElement | null>(null);
+  const cardRef = useRef<HTMLDivElement | null>(null);
   const highlight = isActive && isActiveBranch;
   const canTransfer = transferTargets.length > 0;
+  const showOverlay = hovered && (showBranchButton || canTransfer);
 
-  // Auto-scroll into view when this node becomes active
+  // Scroll into view when this node becomes the active one
   useEffect(() => {
-    if (isActive && liRef.current) {
-      liRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    if (isActive && cardRef.current) {
+      cardRef.current.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
     }
   }, [isActive]);
 
-  // Close menu on outside click
-  useEffect(() => {
-    if (!menuOpen) return;
-    function handle(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handle);
-    return () => document.removeEventListener('mousedown', handle);
-  }, [menuOpen]);
-
   return (
-    <li
-      ref={liRef}
+    <div
+      ref={cardRef}
+      style={{
+        flexShrink: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 3,
+        cursor: 'pointer',
+        padding: '0 3px',
+      }}
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => { setHovered(false); setMenuOpen(false); }}
-      style={{ listStyle: 'none', position: 'relative' }}
+      onMouseLeave={() => setHovered(false)}
+      onClick={onSelect}
     >
-      {/* Select row — no nested interactive elements so clicks reach buttons below */}
+      {/* Thumbnail with colored border when active, plus hover overlay for actions */}
       <div
-        onClick={onSelect}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSelect(); }}
         style={{
-          width: '100%',
-          textAlign: 'left',
-          padding: '8px 12px',
-          background: highlight ? '#2a2a4e' : hovered ? 'rgba(42,42,78,0.4)' : 'transparent',
-          borderLeft: highlight ? '3px solid #7c6f9f' : '3px solid transparent',
-          display: 'flex',
-          flexDirection: 'row',
-          gap: '8px',
-          alignItems: 'flex-start',
-          transition: 'background 0.15s',
-          cursor: 'pointer',
+          border: highlight
+            ? `2px solid ${slotColor}`
+            : hovered
+            ? '2px solid #3a3a5e'
+            : '2px solid transparent',
+          borderRadius: 4,
+          position: 'relative',
+          flexShrink: 0,
+          transition: 'border-color 0.12s',
         }}
       >
-        <NodeThumbnail node={node} />
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px', paddingTop: '4px' }}>
-          <span
+        <NodeThumbnail node={node} width={THUMB_W} height={THUMB_H} />
+
+        {/* Hover action overlay — rendered inside the thumbnail so no clipping */}
+        {showOverlay && (
+          <div
             style={{
-              fontSize: '12px',
-              fontWeight: highlight ? 600 : 400,
-              color: highlight ? '#e0e0e0' : '#aaa',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
+              position: 'absolute',
+              inset: 0,
+              background: 'rgba(8, 8, 24, 0.82)',
+              borderRadius: 2,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 3,
+              padding: '3px',
             }}
           >
-            {node.blueprint.identity.name}
-          </span>
-          <span style={{ fontSize: '10px', color: '#666', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {node.label}
-          </span>
-          <span style={{ fontSize: '10px', color: '#555' }}>
-            {new Date(node.timestamp).toLocaleTimeString()}
-          </span>
-        </div>
+            {showBranchButton && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onBranch(); }}
+                title="Branch from here"
+                style={{
+                  background: '#2a2a4e',
+                  border: '1px solid #4a3f7e',
+                  color: '#c4b5fd',
+                  borderRadius: 2,
+                  padding: '2px 0',
+                  fontSize: 8,
+                  cursor: 'pointer',
+                  width: '100%',
+                  textAlign: 'center',
+                  lineHeight: 1.2,
+                }}
+              >
+                ⎇ branch
+              </button>
+            )}
+            {canTransfer && transferTargets.map((t) => (
+              <button
+                key={t.id}
+                onClick={(e) => { e.stopPropagation(); onTransfer(t.id); }}
+                title={`Send to ${t.label}`}
+                style={{
+                  background: '#1a3a28',
+                  border: '1px solid #2a5a3a',
+                  color: '#6ee7b7',
+                  borderRadius: 2,
+                  padding: '2px 0',
+                  fontSize: 7,
+                  cursor: 'pointer',
+                  width: '100%',
+                  textAlign: 'center',
+                  lineHeight: 1.2,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                → {t.label.length > 6 ? t.label.substring(0, 5) + '…' : t.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Hover actions — sibling of select row so buttons are not nested in a button */}
-      {hovered && (showBranchButton || canTransfer) && (
-        <div style={{ display: 'flex', gap: '4px', padding: '0 12px 6px 68px' }}>
-          {showBranchButton && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onBranch(); }}
-              title="Branch from here"
-              style={{
-                background: '#2a2a4e',
-                border: '1px solid #4a3f7e',
-                color: '#c4b5fd',
-                borderRadius: '3px',
-                padding: '2px 6px',
-                fontSize: '10px',
-                cursor: 'pointer',
-              }}
-            >
-              branch
-            </button>
-          )}
-          {canTransfer && (
-            <button
-              onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }}
-              title="Send this edit to another branch"
-              style={{
-                background: '#1e3a2a',
-                border: '1px solid #2e6a4a',
-                color: '#6ee7b7',
-                borderRadius: '3px',
-                padding: '2px 6px',
-                fontSize: '10px',
-                cursor: 'pointer',
-              }}
-            >
-              ↗ send
-            </button>
-          )}
-        </div>
-      )}
+      {/* Active indicator dot */}
+      <div style={{ width: 4, height: 4, borderRadius: '50%', background: highlight ? slotColor : 'transparent', flexShrink: 0 }} />
 
-      {/* Transfer dropdown */}
-      {menuOpen && (
-        <div
-          ref={menuRef}
-          style={{
-            position: 'absolute',
-            right: 8,
-            top: '100%',
-            zIndex: 50,
-            background: '#0f1a2e',
-            border: '1px solid #2e6a4a',
-            borderRadius: '5px',
-            padding: '4px 0',
-            minWidth: '120px',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
-          }}
-        >
-          <div style={{ padding: '4px 10px 6px', fontSize: '9px', color: '#4a9a7a', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-            Send edit to
-          </div>
-          {transferTargets.map((t) => (
-            <button
-              key={t.id}
-              onClick={(e) => {
-                e.stopPropagation();
-                onTransfer(t.id);
-                setMenuOpen(false);
-              }}
-              style={{
-                display: 'block',
-                width: '100%',
-                textAlign: 'left',
-                padding: '5px 10px',
-                background: 'transparent',
-                border: 'none',
-                color: '#a7f3d0',
-                fontSize: '11px',
-                cursor: 'pointer',
-              }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#1a3a2a'; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </li>
+      {/* Node label */}
+      <div
+        style={{
+          fontSize: 7,
+          color: highlight ? '#bbb' : '#555',
+          maxWidth: THUMB_W + 6,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          textAlign: 'center',
+          lineHeight: 1,
+        }}
+      >
+        {node.label}
+      </div>
+    </div>
   );
 }
 
-// ── BranchSection ──────────────────────────────────────────────────────────────
+// ── HorizontalBranchRow ───────────────────────────────────────────────────────
 
-interface BranchSectionProps {
+interface HorizontalBranchRowProps {
   branch: Branch;
+  slotIndex: number;
   isActiveBranch: boolean;
   canBranch: boolean;
   allBranches: Branch[];
 }
 
-function BranchSection({ branch, isActiveBranch, canBranch, allBranches }: BranchSectionProps) {
+function HorizontalBranchRow({ branch, slotIndex, isActiveBranch, canBranch, allBranches }: HorizontalBranchRowProps) {
   const setActiveNode = useStore((s) => s.setActiveNode);
   const branchFrom = useStore((s) => s.branchFrom);
   const renameBranch = useStore((s) => s.renameBranch);
-  const toggleBranchCollapse = useStore((s) => s.toggleBranchCollapse);
   const transferEdit = useStore((s) => s.transferEdit);
 
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(branch.label);
   const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const color = SLOT_COLORS[slotIndex] ?? '#9c8fc0';
 
   useEffect(() => {
     if (renaming && inputRef.current) {
@@ -292,41 +264,48 @@ function BranchSection({ branch, isActiveBranch, canBranch, allBranches }: Branc
     setRenaming(false);
   }
 
-  const reversedNodes = [...branch.nodes].reverse();
   const transferTargets = allBranches
     .filter((b) => b.id !== branch.id)
     .map((b) => ({ id: b.id, label: b.label }));
 
   return (
-    <div style={{ borderBottom: '1px solid #2a2a4e' }}>
-      {/* Header */}
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'stretch',
+        height: 86,
+        borderTop: '1px solid #2a2a4e',
+        background: isActiveBranch ? 'rgba(26, 22, 50, 0.7)' : 'transparent',
+      }}
+    >
+      {/* Left: branch identity (fixed width, non-scrolling) */}
       <div
         style={{
+          width: 140,
+          flexShrink: 0,
+          borderLeft: `3px solid ${color}`,
+          borderRight: '1px solid #2a2a4e',
+          padding: '8px 10px',
           display: 'flex',
-          alignItems: 'center',
-          padding: '8px 12px',
-          background: isActiveBranch ? '#1e1d3a' : '#16213e',
-          borderLeft: isActiveBranch ? '3px solid #c4b5fd' : '3px solid transparent',
-          gap: '6px',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          gap: 3,
         }}
       >
-        <button
-          onClick={() => toggleBranchCollapse(branch.id)}
+        {/* Canvas slot label */}
+        <div
           style={{
-            background: 'none',
-            border: 'none',
-            color: '#9c8fc0',
-            cursor: 'pointer',
-            fontSize: '12px',
-            padding: '0',
-            lineHeight: 1,
-            flexShrink: 0,
+            fontSize: 9,
+            fontWeight: 700,
+            color,
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
           }}
-          title={branch.collapsed ? 'Expand' : 'Collapse'}
         >
-          {branch.collapsed ? '▸' : '▾'}
-        </button>
+          Canvas {slotIndex + 1}
+        </div>
 
+        {/* Branch name — editable */}
         {renaming ? (
           <input
             ref={inputRef}
@@ -338,80 +317,86 @@ function BranchSection({ branch, isActiveBranch, canBranch, allBranches }: Branc
               if (e.key === 'Escape') { setRenameValue(branch.label); setRenaming(false); }
             }}
             style={{
-              flex: 1,
               background: '#0f0f1e',
               border: '1px solid #4a3f7e',
               color: '#e0e0e0',
-              fontSize: '12px',
+              fontSize: 11,
               fontWeight: 600,
-              borderRadius: '3px',
-              padding: '2px 5px',
+              borderRadius: 3,
+              padding: '2px 4px',
             }}
           />
         ) : (
-          <span
-            style={{
-              flex: 1,
-              fontSize: '12px',
-              fontWeight: 600,
-              color: isActiveBranch ? '#c4b5fd' : '#9c8fc0',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              letterSpacing: '0.04em',
-            }}
-          >
-            {branch.label}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span
+              style={{
+                flex: 1,
+                fontSize: 11,
+                fontWeight: 600,
+                color: isActiveBranch ? '#e0e0e0' : '#aaa',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {branch.label}
+            </span>
+            <button
+              onClick={() => { setRenameValue(branch.label); setRenaming(true); }}
+              title="Rename branch"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#444',
+                cursor: 'pointer',
+                fontSize: 10,
+                padding: 0,
+                flexShrink: 0,
+                lineHeight: 1,
+              }}
+            >
+              ✎
+            </button>
+          </div>
         )}
 
-        {!renaming && (
-          <button
-            onClick={() => { setRenameValue(branch.label); setRenaming(true); }}
-            title="Rename branch"
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#555',
-              cursor: 'pointer',
-              fontSize: '12px',
-              padding: '0',
-              lineHeight: 1,
-              flexShrink: 0,
-            }}
-          >
-            {'✎'}
-          </button>
-        )}
-      </div>
-
-      {/* Nodes */}
-      {branch.collapsed ? (
-        <div style={{ padding: '6px 12px', fontSize: '10px', color: '#555' }}>
+        {/* Node count */}
+        <div style={{ fontSize: 9, color: '#555' }}>
           {branch.nodes.length} node{branch.nodes.length !== 1 ? 's' : ''}
         </div>
-      ) : (
-        <ul style={{ listStyle: 'none', padding: '4px 0', margin: 0 }}>
-          {reversedNodes.map((node) => {
-            // Only show transfer if node's parent is within this same branch
-            const parentInBranch = node.parentId !== null &&
-              branch.nodes.some((n) => n.id === node.parentId);
-            return (
-              <NodeRow
-                key={node.id}
-                node={node}
-                isActive={node.id === branch.activeNodeId}
-                isActiveBranch={isActiveBranch}
-                showBranchButton={canBranch}
-                transferTargets={parentInBranch ? transferTargets : []}
-                onSelect={() => setActiveNode(node.id)}
-                onBranch={() => branchFrom(node.id, branch.id)}
-                onTransfer={(toBranchId) => transferEdit(branch.id, node.id, toBranchId)}
-              />
-            );
-          })}
-        </ul>
-      )}
+      </div>
+
+      {/* Right: horizontally scrollable node list, oldest → newest left-to-right */}
+      <div
+        style={{
+          flex: 1,
+          overflowX: 'auto',
+          display: 'flex',
+          alignItems: 'center',
+          padding: '6px 8px',
+          gap: 4,
+        }}
+      >
+        {branch.nodes.map((node) => {
+          const parentInBranch =
+            node.parentId !== null &&
+            branch.nodes.some((n) => n.id === node.parentId);
+          return (
+            <HorizontalNodeCard
+              key={node.id}
+              node={node}
+              isActive={node.id === branch.activeNodeId}
+              isActiveBranch={isActiveBranch}
+              showBranchButton={canBranch}
+              transferTargets={parentInBranch ? transferTargets : []}
+              slotColor={color}
+              onSelect={() => setActiveNode(node.id)}
+              onBranch={() => branchFrom(node.id, branch.id)}
+              onTransfer={(toBranchId) => transferEdit(branch.id, node.id, toBranchId)}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -423,58 +408,51 @@ export function TimelinePanel() {
   const activeBranchId = useStore((s) => s.activeBranchId);
 
   const canBranch = branches.length < 4;
+  const totalNodes = branches.reduce((acc, b) => acc + b.nodes.length, 0);
 
   return (
-    <aside
+    <div
       style={{
-        width: '260px',
-        minWidth: '220px',
         background: '#16213e',
-        borderLeft: '1px solid #2a2a4e',
+        borderTop: '1px solid #2a2a4e',
+        flexShrink: 0,
         display: 'flex',
         flexDirection: 'column',
-        overflow: 'hidden',
       }}
     >
+      {/* Panel header */}
       <div
         style={{
-          padding: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '5px 16px',
           borderBottom: '1px solid #2a2a4e',
-          fontSize: '14px',
-          fontWeight: 600,
-          color: '#9c8fc0',
-          letterSpacing: '0.05em',
           flexShrink: 0,
+          background: '#111928',
         }}
       >
-        TIMELINE
+        <span style={{ fontSize: 11, fontWeight: 600, color: '#9c8fc0', letterSpacing: '0.08em' }}>
+          TIMELINE
+        </span>
+        <span style={{ fontSize: 10, color: '#555' }}>
+          {branches.length} branch{branches.length !== 1 ? 'es' : ''}
+          {' · '}
+          {totalNodes} node{totalNodes !== 1 ? 's' : ''}
+        </span>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        {branches.map((branch) => (
-          <BranchSection
-            key={branch.id}
-            branch={branch}
-            isActiveBranch={branch.id === activeBranchId}
-            canBranch={canBranch}
-            allBranches={branches}
-          />
-        ))}
-      </div>
-
-      <div
-        style={{
-          padding: '8px 16px',
-          borderTop: '1px solid #2a2a4e',
-          fontSize: '11px',
-          color: '#555',
-          flexShrink: 0,
-        }}
-      >
-        {branches.length} branch{branches.length !== 1 ? 'es' : ''}
-        {' · '}
-        {branches.reduce((acc, b) => acc + b.nodes.length, 0)} nodes
-      </div>
-    </aside>
+      {/* One row per existing branch — rows only appear when the branch exists */}
+      {branches.map((branch, i) => (
+        <HorizontalBranchRow
+          key={branch.id}
+          branch={branch}
+          slotIndex={i}
+          isActiveBranch={branch.id === activeBranchId}
+          canBranch={canBranch}
+          allBranches={branches}
+        />
+      ))}
+    </div>
   );
 }
