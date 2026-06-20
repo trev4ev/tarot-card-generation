@@ -37,8 +37,6 @@ const SYMBOL_PRESETS = [
   { kind: 'star',   label: 'Star'   },
   { kind: 'flame',  label: 'Flame'  },
   { kind: 'flower', label: 'Flower' },
-  { kind: 'staff',  label: 'Staff'  },
-  { kind: 'wolf',   label: 'Wolf'   },
 ] as const;
 
 // ── Sub-components ────────────────────────────────────────────────────────────

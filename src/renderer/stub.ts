@@ -434,21 +434,6 @@ function drawSymbol(
       }));
     }
     group.add(new Konva.Circle({ radius: r * 0.26, fill: color }));
-  } else if (kind === 'staff' || kind === 'wand') {
-    group.add(new Konva.Line({
-      points: [0, -r, 0, r], stroke: color, strokeWidth: 5, lineCap: 'round',
-    }));
-    group.add(new Konva.Circle({ y: -r, radius: 6, fill: color }));
-  } else if (kind === 'wolf') {
-    group.add(new Konva.RegularPolygon({ sides: 5, radius: r * 0.65, fill: color, opacity: 0.9 }));
-    group.add(new Konva.Line({
-      points: [-r * 0.35, -r * 0.5, -r * 0.15, -r * 0.88, 0, -r * 0.5],
-      closed: true, fill: color, stroke: color, strokeWidth: 1,
-    }));
-    group.add(new Konva.Line({
-      points: [r * 0.35, -r * 0.5, r * 0.15, -r * 0.88, 0, -r * 0.5],
-      closed: true, fill: color, stroke: color, strokeWidth: 1,
-    }));
   } else {
     group.add(new Konva.RegularPolygon({ sides: 6, radius: r * 0.78, fill: color, opacity: 0.75 }));
     group.add(new Konva.Text({

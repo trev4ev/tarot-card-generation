@@ -130,26 +130,6 @@ export const theMoon: Blueprint = {
       flipX: false,
       flipY: false,
     },
-    {
-      id: 'moon-wolf-left',
-      kind: 'wolf',
-      x: 0.15,
-      y: 0.7,
-      scale: 0.7,
-      opacity: 0.9,
-      flipX: false,
-      flipY: false,
-    },
-    {
-      id: 'moon-wolf-right',
-      kind: 'wolf',
-      x: 0.85,
-      y: 0.7,
-      scale: 0.7,
-      opacity: 0.9,
-      flipX: true,
-      flipY: false,
-    },
   ],
   footer: {
     text: 'XVIII · THE MOON',
@@ -207,16 +187,6 @@ export const aceOfWands: Blueprint = {
     patternOpacity: 0.25,
   },
   symbols: [
-    {
-      id: 'wands-staff',
-      kind: 'staff',
-      x: 0.5,
-      y: 0.5,
-      scale: 1.2,
-      opacity: 1.0,
-      flipX: false,
-      flipY: false,
-    },
     {
       id: 'wands-flame-1',
       kind: 'flame',
