@@ -16,7 +16,7 @@ function drawSelectionOnLayer(
   el: ElementRef,
   blueprint: Blueprint,
 ): void {
-  const { frame, footer, layout, typography } = blueprint;
+  const { frame, footer, typography } = blueprint;
   const innerLeft = frame.thickness + frame.innerMargin;
   const innerWidth = CARD_W - innerLeft * 2;
 
@@ -44,14 +44,11 @@ function drawSelectionOnLayer(
       }));
     }
   } else if (el.type === 'title') {
-    const lineH = typography.titleSize + 6;
-    const titleY = layout.titlePosition === 'top'
-      ? frame.thickness + frame.innerMargin
-      : CARD_H - frame.thickness - frame.innerMargin - lineH - (footer.visible ? footer.size + 10 : 0);
-    const titleH = typography.titleSize + typography.bodySize + 14;
+    // Highlight the full title band (solid background strip at the top)
+    const titleBandH = frame.thickness + frame.innerMargin + typography.titleSize + 6 + typography.bodySize + frame.innerMargin;
     layer.add(new Konva.Rect({
-      x: innerLeft - 4, y: titleY - 2,
-      width: innerWidth + 8, height: titleH,
+      x: frame.thickness - 2, y: frame.thickness - 2,
+      width: CARD_W - 2 * frame.thickness + 4, height: titleBandH - frame.thickness + 2,
       stroke: SEL_COLOR, strokeWidth: 1.5, dash: DASH,
       cornerRadius: 3, listening: false,
     }));
@@ -278,23 +275,27 @@ function BranchCard({
           height: CARD_H,
         }}
       >
-        {blueprint.illustration && (
-          <img
-            key={blueprint.illustration}
-            src={`${import.meta.env.BASE_URL}illustrations/${blueprint.illustration}.png`}
-            alt={blueprint.illustration}
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              pointerEvents: 'none',
-            }}
-            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-          />
-        )}
+        {blueprint.illustration && (() => {
+          const ft = blueprint.frame.thickness;
+          const bandH = ft + blueprint.frame.innerMargin + blueprint.typography.titleSize + 6 + blueprint.typography.bodySize + blueprint.frame.innerMargin;
+          return (
+            <img
+              key={blueprint.illustration}
+              src={`${import.meta.env.BASE_URL}illustrations/${blueprint.illustration}.png`}
+              alt={blueprint.illustration}
+              style={{
+                position: 'absolute',
+                top: bandH,
+                left: ft,
+                width: CARD_W - 2 * ft,
+                height: CARD_H - bandH - ft,
+                objectFit: 'cover',
+                pointerEvents: 'none',
+              }}
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+            />
+          );
+        })()}
         <Stage
           width={CARD_W}
           height={CARD_H}

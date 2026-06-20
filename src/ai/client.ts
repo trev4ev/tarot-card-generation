@@ -67,7 +67,6 @@ interface AICardResponse {
   frame: Blueprint['frame'];
   background: Blueprint['background'];
   footer: Blueprint['footer'];
-  mood: number;
   symbols: SymbolDef[];
 }
 
@@ -195,8 +194,6 @@ function sanitize(raw: unknown): AICardResponse {
       visible:    typeof footer.visible === 'boolean' ? footer.visible : true,
     },
 
-    mood: clamp(r.mood, 0, 100, 50),
-
     symbols: rawSymbols.map((s: unknown) => {
       const sym = obj(s);
       return {
@@ -225,7 +222,6 @@ function responseToBlueprintPatch(r: AICardResponse): Omit<Blueprint, 'id' | 'se
     frame: r.frame,
     background: r.background,
     footer: r.footer,
-    mood: r.mood,
     symbols: r.symbols,
     layout: {
       titlePosition: titlePosition === 'overlay' ? 'top' : titlePosition,
@@ -288,7 +284,6 @@ Return a JSON object with this exact shape (wrapped in a \`\`\`json\`\`\` block)
     "size": number (9-14),
     "visible": boolean
   },
-  "mood": number (0-100, where 0=shadow/dark, 50=neutral, 100=radiant/light),
   "symbols": []
 }
 
@@ -338,7 +333,6 @@ export const realAIClient: AIClient = {
       frame:       blueprint.frame,
       background:  blueprint.background,
       footer:      blueprint.footer,
-      mood:        blueprint.mood,
       symbols:     blueprint.symbols,
     };
     const text = await callClaude(

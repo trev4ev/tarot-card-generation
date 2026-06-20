@@ -552,21 +552,6 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
 
       {bp && (
         <>
-          {/* Mood */}
-          <Section id="Mood" title="Mood" openSection={openSection} onToggle={setOpenSection}>
-            <Slider
-              label="Mood"
-              value={bp.mood} min={0} max={100}
-              onLiveChange={(v) => updateLiveBlueprint({ mood: v })}
-              onChange={(v) => patch('mood', v, `Mood → ${v}`)}
-            />
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#555' }}>
-              <span>Shadow</span>
-              <span>Neutral</span>
-              <span>Radiant</span>
-            </div>
-          </Section>
-
           {/* Palette */}
           <Section id="Palette" title="Palette" openSection={openSection} onToggle={setOpenSection}>
             <ColorRow

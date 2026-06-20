@@ -64,6 +64,12 @@ function applyNoise(node: Konva.Node, amount: number, offset = 2): void {
   }
 }
 
+// Height of the solid title band at the top of the card (frame border + padding + text + padding)
+function computeTitleBandH(blueprint: Blueprint): number {
+  const { frame, typography } = blueprint;
+  return frame.thickness + frame.innerMargin + typography.titleSize + 6 + typography.bodySize + frame.innerMargin;
+}
+
 // ── Patterns ─────────────────────────────────────────────────────────────────
 
 function drawPattern(
@@ -448,6 +454,212 @@ function drawSymbol(
   applyNoise(group, SHAPE_NOISE);
 }
 
+// ── Frame rendering ────────────────────────────────────────────────────────────
+
+function drawFrame(
+  layer: Konva.Layer,
+  frame: Blueprint['frame'],
+  frameColor: string,
+): void {
+  const { style, thickness } = frame;
+
+  const cornerRadius = (
+    style === 'ornate' ? 6 :
+    style === 'art-nouveau' ? 14 :
+    style === 'minimal' ? 2 :
+    style === 'celtic' || style === 'gothic' ? 0 :
+    4
+  );
+
+  // Outer border (all styles)
+  layer.add(new Konva.Rect({
+    x: thickness / 2, y: thickness / 2,
+    width: CARD_W - thickness, height: CARD_H - thickness,
+    stroke: frameColor, strokeWidth: thickness,
+    cornerRadius, id: 'frame-outer',
+  }));
+
+  if (style === 'simple' || style === 'minimal') {
+    // Nothing more — single clean border
+    return;
+  }
+
+  if (style === 'double') {
+    // Two concentric borders with a visible gap, diamond markers at inner corners
+    const gap = Math.max(8, thickness);
+    const inX = thickness + gap;
+    layer.add(new Konva.Rect({
+      x: inX, y: inX,
+      width: CARD_W - inX * 2, height: CARD_H - inX * 2,
+      stroke: frameColor, strokeWidth: 1.5, opacity: 0.8,
+      cornerRadius: Math.max(cornerRadius - 1, 0),
+      id: 'frame-inner',
+    }));
+    // Diamond (rotated square) at each inner corner
+    for (const [cx, cy] of [
+      [inX, inX], [CARD_W - inX, inX],
+      [inX, CARD_H - inX], [CARD_W - inX, CARD_H - inX],
+    ] as [number, number][]) {
+      layer.add(new Konva.Rect({
+        x: cx, y: cy,
+        width: 9, height: 9,
+        offsetX: 4.5, offsetY: 4.5,
+        rotation: 45,
+        fill: frameColor, opacity: 0.9, listening: false,
+      }));
+    }
+    return;
+  }
+
+  if (style === 'ornate') {
+    // Inner rect + diamond ornaments at midpoint of each side
+    const inOff = thickness + 5;
+    layer.add(new Konva.Rect({
+      x: inOff, y: inOff,
+      width: CARD_W - inOff * 2, height: CARD_H - inOff * 2,
+      stroke: frameColor, strokeWidth: 1.5, opacity: 0.65,
+      cornerRadius: 4, id: 'frame-inner',
+    }));
+    const midpoints: [number, number][] = [
+      [CARD_W / 2, inOff], [CARD_W / 2, CARD_H - inOff],
+      [inOff, CARD_H / 2], [CARD_W - inOff, CARD_H / 2],
+    ];
+    for (const [mx, my] of midpoints) {
+      layer.add(new Konva.Rect({
+        x: mx, y: my,
+        width: 10, height: 10,
+        offsetX: 5, offsetY: 5,
+        rotation: 45,
+        fill: frameColor, opacity: 0.85, listening: false,
+      }));
+    }
+    // Small corner fillets on inner rect
+    for (const [cx, cy] of [
+      [inOff, inOff], [CARD_W - inOff, inOff],
+      [inOff, CARD_H - inOff], [CARD_W - inOff, CARD_H - inOff],
+    ] as [number, number][]) {
+      layer.add(new Konva.Circle({
+        x: cx, y: cy, radius: 3,
+        fill: frameColor, opacity: 0.7, listening: false,
+      }));
+    }
+    return;
+  }
+
+  if (style === 'gothic') {
+    // Dashed inner rect + cross ornaments at side midpoints
+    const inOff = thickness + 6;
+    layer.add(new Konva.Rect({
+      x: inOff, y: inOff,
+      width: CARD_W - inOff * 2, height: CARD_H - inOff * 2,
+      stroke: frameColor, strokeWidth: 1.5, opacity: 0.7,
+      dash: [6, 4], id: 'frame-inner',
+    }));
+    // Cross ornaments at each side's midpoint
+    const crossLen = 9;
+    const midpoints: [number, number][] = [
+      [CARD_W / 2, inOff], [CARD_W / 2, CARD_H - inOff],
+      [inOff, CARD_H / 2], [CARD_W - inOff, CARD_H / 2],
+    ];
+    for (const [mx, my] of midpoints) {
+      layer.add(new Konva.Line({
+        points: [mx - crossLen, my, mx + crossLen, my],
+        stroke: frameColor, strokeWidth: 1.5, opacity: 0.8, listening: false,
+      }));
+      layer.add(new Konva.Line({
+        points: [mx, my - crossLen, mx, my + crossLen],
+        stroke: frameColor, strokeWidth: 1.5, opacity: 0.8, listening: false,
+      }));
+    }
+    // Diamond at cross centres
+    for (const [mx, my] of midpoints) {
+      layer.add(new Konva.Rect({
+        x: mx, y: my,
+        width: 6, height: 6,
+        offsetX: 3, offsetY: 3,
+        rotation: 45,
+        fill: frameColor, opacity: 0.9, listening: false,
+      }));
+    }
+    return;
+  }
+
+  if (style === 'celtic') {
+    // Triple inner borders + dot pattern between them
+    const inOff1 = thickness + 4;
+    const inOff2 = thickness + 8;
+    const inOff3 = thickness + 12;
+    layer.add(new Konva.Rect({
+      x: inOff1, y: inOff1,
+      width: CARD_W - inOff1 * 2, height: CARD_H - inOff1 * 2,
+      stroke: frameColor, strokeWidth: 1, opacity: 0.85, listening: false,
+    }));
+    layer.add(new Konva.Rect({
+      x: inOff3, y: inOff3,
+      width: CARD_W - inOff3 * 2, height: CARD_H - inOff3 * 2,
+      stroke: frameColor, strokeWidth: 1, opacity: 0.65, listening: false,
+    }));
+    // Dots along the midline (inOff2) on each side
+    const dotSpacing = 10;
+    const dotMid = inOff2;
+    for (let x = inOff1 + dotSpacing; x < CARD_W - inOff1 - dotSpacing / 2; x += dotSpacing) {
+      layer.add(new Konva.Circle({ x, y: dotMid, radius: 1.5, fill: frameColor, opacity: 0.75, listening: false }));
+      layer.add(new Konva.Circle({ x, y: CARD_H - dotMid, radius: 1.5, fill: frameColor, opacity: 0.75, listening: false }));
+    }
+    for (let y = inOff1 + dotSpacing; y < CARD_H - inOff1 - dotSpacing / 2; y += dotSpacing) {
+      layer.add(new Konva.Circle({ x: dotMid, y, radius: 1.5, fill: frameColor, opacity: 0.75, listening: false }));
+      layer.add(new Konva.Circle({ x: CARD_W - dotMid, y, radius: 1.5, fill: frameColor, opacity: 0.75, listening: false }));
+    }
+    return;
+  }
+
+  if (style === 'art-nouveau') {
+    // Sinusoidal wavy inner border — organic, flowing lines on each side
+    const wInset = thickness + 7;
+    const amp = 3.5;
+    const freq = 0.13;
+
+    // Top wave
+    const topPts: number[] = [];
+    for (let x = wInset; x <= CARD_W - wInset; x += 2) {
+      topPts.push(x, wInset + Math.sin((x - wInset) * freq) * amp);
+    }
+    layer.add(new Konva.Line({ points: topPts, stroke: frameColor, strokeWidth: 1, opacity: 0.6, tension: 0.3, listening: false }));
+
+    // Bottom wave (phase-shifted)
+    const botPts: number[] = [];
+    for (let x = wInset; x <= CARD_W - wInset; x += 2) {
+      botPts.push(x, CARD_H - wInset + Math.sin((x - wInset) * freq + Math.PI) * amp);
+    }
+    layer.add(new Konva.Line({ points: botPts, stroke: frameColor, strokeWidth: 1, opacity: 0.6, tension: 0.3, listening: false }));
+
+    // Left wave
+    const leftPts: number[] = [];
+    for (let y = wInset; y <= CARD_H - wInset; y += 2) {
+      leftPts.push(wInset + Math.sin((y - wInset) * freq) * amp, y);
+    }
+    layer.add(new Konva.Line({ points: leftPts, stroke: frameColor, strokeWidth: 1, opacity: 0.6, tension: 0.3, listening: false }));
+
+    // Right wave (phase-shifted)
+    const rightPts: number[] = [];
+    for (let y = wInset; y <= CARD_H - wInset; y += 2) {
+      rightPts.push(CARD_W - wInset + Math.sin((y - wInset) * freq + Math.PI) * amp, y);
+    }
+    layer.add(new Konva.Line({ points: rightPts, stroke: frameColor, strokeWidth: 1, opacity: 0.6, tension: 0.3, listening: false }));
+
+    // Small swirl circles at corners
+    const swInset = thickness + 14;
+    for (const [cx, cy] of [
+      [swInset, swInset], [CARD_W - swInset, swInset],
+      [swInset, CARD_H - swInset], [CARD_W - swInset, CARD_H - swInset],
+    ] as [number, number][]) {
+      layer.add(new Konva.Circle({ x: cx, y: cy, radius: 5, stroke: frameColor, strokeWidth: 1, opacity: 0.55, listening: false }));
+      layer.add(new Konva.Circle({ x: cx, y: cy, radius: 2.5, stroke: frameColor, strokeWidth: 1, opacity: 0.55, listening: false }));
+    }
+    return;
+  }
+}
+
 // ── Main renderer ─────────────────────────────────────────────────────────────
 
 export const rendererStub: RendererAPI = {
@@ -456,62 +668,43 @@ export const rendererStub: RendererAPI = {
     const layer = new Konva.Layer();
     stage.add(layer);
 
-    const { palette, typography, frame, background: bg, symbols, identity, footer, layout } = blueprint;
+    const { palette, typography, frame, background: bg, symbols, identity, footer } = blueprint;
     const frameColor = frame.color ?? palette.border;
     const innerLeft = frame.thickness + frame.innerMargin;
     const innerWidth = CARD_W - innerLeft * 2;
-    const ia = layout.illustrationArea;
-    const iaX = ia.x * CARD_W;
-    const iaY = ia.y * CARD_H;
-    const iaW = ia.width * CARD_W;
-    const iaH = ia.height * CARD_H;
     const hasIllustration = !!blueprint.illustration;
 
-    // 1 — Background (skip when illustration fills the card as HTML layer behind canvas)
-    if (!hasIllustration) {
+    // Title band: solid strip at top of card that always shows the card background color.
+    // The illustration fills the space below this band.
+    const titleBandH = computeTitleBandH(blueprint);
+
+    // 1 — Background
+    if (hasIllustration) {
+      // Only fill the title band with the card background color.
+      // The illustration (HTML img positioned below the band) shows through the
+      // transparent canvas beneath.
+      layer.add(new Konva.Rect({
+        x: 0, y: 0, width: CARD_W, height: titleBandH,
+        fill: bg.baseColor, id: 'background',
+      }));
+    } else {
+      // Full card background when no illustration
       layer.add(new Konva.Rect({
         x: 0, y: 0, width: CARD_W, height: CARD_H,
         fill: bg.baseColor, id: 'background',
       }));
     }
 
-    // 2 — Texture overlay (beneath pattern and frame). Seeded by the stable
-    // `seed` (not `id`) so scattered dots/lines stay put across edits.
+    // 2 — Texture overlay (beneath pattern and frame)
     drawTexture(layer, bg.texture, bg.textureDensity, blueprint.seed);
 
     // 2b — Pattern overlay (beneath frame)
     drawPattern(layer, bg.pattern, bg.patternOpacity, palette.primaryAccent, blueprint.seed);
 
-    // 3 — Outer frame border
-    const cornerRadius = (
-      frame.style === 'ornate' ? 6 :
-      frame.style === 'art-nouveau' ? 14 :
-      frame.style === 'minimal' ? 2 :
-      frame.style === 'celtic' || frame.style === 'gothic' ? 0 :
-      4
-    );
-    layer.add(new Konva.Rect({
-      x: frame.thickness / 2, y: frame.thickness / 2,
-      width: CARD_W - frame.thickness, height: CARD_H - frame.thickness,
-      stroke: frameColor, strokeWidth: frame.thickness,
-      cornerRadius, id: 'frame-outer',
-    }));
+    // 3 — Frame (outer border + style-specific inner decorations)
+    drawFrame(layer, frame, frameColor);
 
-    // 4 — Inner frame line for double/ornate/gothic/celtic/art-nouveau
-    if (['double', 'ornate', 'gothic', 'celtic', 'art-nouveau'].includes(frame.style)) {
-      const inOff = frame.thickness + 5;
-      layer.add(new Konva.Rect({
-        x: inOff, y: inOff,
-        width: CARD_W - inOff * 2, height: CARD_H - inOff * 2,
-        stroke: frameColor,
-        strokeWidth: frame.style === 'double' ? 2 : 1.5,
-        opacity: 0.65,
-        cornerRadius: cornerRadius > 0 ? Math.max(cornerRadius - 2, 0) : 0,
-        id: 'frame-inner',
-      }));
-    }
-
-    // 5 — Corner motifs
+    // 4 — Corner motifs
     const mInset = frame.thickness + frame.innerMargin * 0.6;
     const corners: [number, number][] = [
       [mInset, mInset],
@@ -523,53 +716,46 @@ export const rendererStub: RendererAPI = {
       drawCornerMotif(layer, frame.cornerMotif, cx, cy, frameColor, bg.baseColor);
     }
 
+    // 5 — Title band separator line (subtle rule between title section and image area)
+    layer.add(new Konva.Line({
+      points: [frame.thickness, titleBandH, CARD_W - frame.thickness, titleBandH],
+      stroke: frameColor, strokeWidth: 1, opacity: 0.35, listening: false,
+    }));
+
     // 6 — Illustration area placeholder (only when no illustration)
     if (!hasIllustration) {
+      const illY = titleBandH;
+      const illH = CARD_H - titleBandH - frame.thickness;
       layer.add(new Konva.Rect({
-        x: iaX, y: iaY, width: iaW, height: iaH,
+        x: frame.thickness, y: illY,
+        width: CARD_W - frame.thickness * 2, height: illH,
         fill: hexToRgba(palette.primaryAccent, 0.08),
         id: 'illustration-bg',
       }));
       layer.add(new Konva.Rect({
-        x: iaX, y: iaY, width: iaW, height: iaH,
+        x: frame.thickness, y: illY,
+        width: CARD_W - frame.thickness * 2, height: illH,
         stroke: hexToRgba(palette.border, 0.35), strokeWidth: 1,
         id: 'illustration-area',
       }));
       layer.add(new Konva.Text({
-        x: iaX, y: iaY + iaH / 2 - 9, width: iaW,
+        x: frame.thickness, y: illY + illH / 2 - 9,
+        width: CARD_W - frame.thickness * 2,
         text: '✦  illustration  ✦',
         fontSize: 12, fill: palette.text, opacity: 0.2,
         align: 'center', listening: false,
       }));
     }
 
-    // 7 — Symbols (on top of image, behind gradient overlays and text)
+    // 7 — Symbols (on top of image, behind text)
     for (const sym of symbols) {
       drawSymbol(layer, sym, palette.primaryAccent, palette.secondaryAccent, bg.baseColor);
     }
 
-    // 7.5 — Title gradient overlay for readability (only when illustration fills background)
-    if (hasIllustration) {
-      const titleGradH = Math.min(
-        frame.thickness + frame.innerMargin * 2 + typography.titleSize + typography.bodySize + 36,
-        CARD_H * 0.4,
-      );
-      layer.add(new Konva.Rect({
-        x: 0, y: 0, width: CARD_W, height: titleGradH,
-        fillLinearGradientStartPoint: { x: 0, y: 0 },
-        fillLinearGradientEndPoint: { x: 0, y: titleGradH },
-        fillLinearGradientColorStops: [0, 'rgba(0,0,0,0.68)', 1, 'rgba(0,0,0,0)'],
-        listening: false,
-      }));
-    }
-
-    // 8 — Title
+    // 8 — Title text
     const titleText = applyTitleCase(identity.name, typography.titleCase);
     const lineH = typography.titleSize + 6;
-    const titleY = layout.titlePosition === 'top'
-      ? frame.thickness + frame.innerMargin
-      : CARD_H - frame.thickness - frame.innerMargin - lineH
-        - (footer.visible ? footer.size + 10 : 0);
+    const titleY = frame.thickness + frame.innerMargin;
 
     // Text nodes get a light grain too, but they must be re-cached once the web
     // fonts finish loading (caching freezes the rasterized glyphs).
@@ -603,7 +789,7 @@ export const rendererStub: RendererAPI = {
     layer.add(archetypeNode);
     textNodes.push(archetypeNode);
 
-    // 9.5 — Footer gradient overlay for readability (only when illustration fills background)
+    // 9.5 — Footer gradient overlay for readability (when illustration fills the image area)
     if (hasIllustration && footer.visible) {
       const footerGradH = Math.min(
         frame.thickness + frame.innerMargin + footer.size + 40,
@@ -639,31 +825,16 @@ export const rendererStub: RendererAPI = {
 
     for (const t of textNodes) applyNoise(t, TEXT_NOISE, 1);
 
-    // 11 — Mood overlay (vignette / glow via radial gradient)
-    const moodRatio = blueprint.mood / 100;
-    if (moodRatio < 0.45) {
-      const t = (0.45 - moodRatio) / 0.45;
-      layer.add(new Konva.Rect({
-        x: 0, y: 0, width: CARD_W, height: CARD_H,
-        fillRadialGradientStartPoint: { x: CARD_W / 2, y: CARD_H / 2 },
-        fillRadialGradientStartRadius: CARD_H * 0.18,
-        fillRadialGradientEndPoint: { x: CARD_W / 2, y: CARD_H / 2 },
-        fillRadialGradientEndRadius: CARD_H * 0.88,
-        fillRadialGradientColorStops: [0, 'rgba(6,4,21,0)', 1, `rgba(6,4,21,${+(t * 0.72).toFixed(3)})`],
-        listening: false,
-      }));
-    } else if (moodRatio > 0.65) {
-      const t = (moodRatio - 0.65) / 0.35;
-      layer.add(new Konva.Rect({
-        x: 0, y: 0, width: CARD_W, height: CARD_H,
-        fillRadialGradientStartPoint: { x: CARD_W / 2, y: CARD_H / 2 },
-        fillRadialGradientStartRadius: 0,
-        fillRadialGradientEndPoint: { x: CARD_W / 2, y: CARD_H / 2 },
-        fillRadialGradientEndRadius: CARD_H * 0.72,
-        fillRadialGradientColorStops: [0, `rgba(255,248,220,${+(t * 0.28).toFixed(3)})`, 1, 'rgba(255,248,220,0)'],
-        listening: false,
-      }));
-    }
+    // 11 — Always-on vignette: soft dark edge that adds depth and a printed feel
+    layer.add(new Konva.Rect({
+      x: 0, y: 0, width: CARD_W, height: CARD_H,
+      fillRadialGradientStartPoint: { x: CARD_W / 2, y: CARD_H / 2 },
+      fillRadialGradientStartRadius: CARD_H * 0.18,
+      fillRadialGradientEndPoint: { x: CARD_W / 2, y: CARD_H / 2 },
+      fillRadialGradientEndRadius: CARD_H * 0.88,
+      fillRadialGradientColorStops: [0, 'rgba(6,4,21,0)', 1, 'rgba(6,4,21,0.55)'],
+      listening: false,
+    }));
 
     layer.batchDraw();
     void document.fonts.ready.then(() => {
@@ -677,8 +848,9 @@ export const rendererStub: RendererAPI = {
   },
 
   hitTest(x: number, y: number, blueprint: Blueprint): ElementRef | null {
-    const { symbols, frame, footer, layout, typography } = blueprint;
+    const { symbols, frame, footer } = blueprint;
     const innerLeft = frame.thickness + frame.innerMargin;
+    const titleBandH = computeTitleBandH(blueprint);
 
     // Symbols — reverse order so topmost rendered wins
     for (let i = symbols.length - 1; i >= 0; i--) {
@@ -691,13 +863,8 @@ export const rendererStub: RendererAPI = {
       }
     }
 
-    // Title area
-    const lineH = typography.titleSize + 6;
-    const titleY = layout.titlePosition === 'top'
-      ? frame.thickness + frame.innerMargin
-      : CARD_H - frame.thickness - frame.innerMargin - lineH - (footer.visible ? footer.size + 10 : 0);
-    const titleH = typography.titleSize + typography.bodySize + 14;
-    if (x >= innerLeft && x <= CARD_W - innerLeft && y >= titleY - 4 && y <= titleY + titleH) {
+    // Title band (full width inside frame border)
+    if (x >= frame.thickness && x <= CARD_W - frame.thickness && y >= frame.thickness && y <= titleBandH) {
       return { type: 'title' };
     }
 

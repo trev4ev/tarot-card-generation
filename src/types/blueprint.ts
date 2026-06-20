@@ -83,7 +83,6 @@ export type Blueprint = {
     titlePosition: 'top' | 'bottom';
     illustrationArea: { x: number; y: number; width: number; height: number };
   };
-  mood: number;
 };
 
 export type DiffEntry = {

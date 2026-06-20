@@ -74,7 +74,6 @@ export const theFool: Blueprint = {
     titlePosition: 'top',
     illustrationArea: { x: 0.05, y: 0.15, width: 0.9, height: 0.65 },
   },
-  mood: 85,
 };
 
 export const theMoon: Blueprint = {
@@ -141,7 +140,6 @@ export const theMoon: Blueprint = {
     titlePosition: 'top',
     illustrationArea: { x: 0.06, y: 0.15, width: 0.88, height: 0.65 },
   },
-  mood: 35,
 };
 
 export const aceOfWands: Blueprint = {
@@ -218,7 +216,6 @@ export const aceOfWands: Blueprint = {
     titlePosition: 'bottom',
     illustrationArea: { x: 0.07, y: 0.1, width: 0.86, height: 0.72 },
   },
-  mood: 90,
 };
 
 export const fixtureCards: Blueprint[] = [theFool, theMoon, aceOfWands];
