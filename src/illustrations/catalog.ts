@@ -97,12 +97,6 @@ export const ILLUSTRATIONS: IllustrationEntry[] = [
     tags: ['balance', 'patience', 'moderation', 'purpose', 'healing', 'flow'],
   },
   {
-    id: 'the-devil',
-    name: 'The Devil',
-    description: 'A goat-headed demon on a black pedestal holds a reversed torch; two chained humans stand below, their chains loose enough to remove.',
-    tags: ['bondage', 'materialism', 'shadow', 'addiction', 'illusion', 'restriction'],
-  },
-  {
     id: 'the-tower',
     name: 'The Tower',
     description: 'A stone tower is shattered by a bolt of lightning; a golden crown topples from its summit as two figures fall through stormy darkness.',

@@ -29,7 +29,6 @@ const KEYWORD_ILLUSTRATION: Array<[RegExp, string]> = [
   [/star|hope|renewal|serenity/i, 'the-star'],
   [/tower|chaos|lightning|upheaval/i, 'the-tower'],
   [/death|transform|ending|rebirth/i, 'death'],
-  [/devil|shadow|bondage|temptation/i, 'the-devil'],
   [/fool|adventure|journey|innocen/i, 'the-fool'],
   [/magician|power|will|manifest/i, 'the-magician'],
   [/empress|nature|abundance|fertile/i, 'the-empress'],
