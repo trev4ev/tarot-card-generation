@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useStore } from '../store';
 import { aiClient } from '../ai';
 import type {
@@ -140,20 +140,74 @@ function Sel<T extends string>({
 }
 
 function ColorRow({
-  label, value, onChange,
+  label, value, onChange, onLiveChange,
 }: {
-  label: string; value: string; onChange: (v: string) => void;
+  label: string; value: string;
+  onChange: (v: string) => void; onLiveChange?: (v: string) => void;
 }) {
+  const [local, setLocal] = useState(value);
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => { setLocal(value); }, [value]);
+
+  // The color input fires `input` continuously while dragging, but `change`
+  // only once when the picker is committed/closed. Drag previews via
+  // onLiveChange (no history); the single `change` records one history node.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const handler = () => onChange(el.value);
+    el.addEventListener('change', handler);
+    return () => el.removeEventListener('change', handler);
+  }, [onChange]);
+
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
       <input
-        type="color" value={value}
-        onChange={(e) => onChange(e.target.value)}
+        ref={ref}
+        type="color" value={local}
+        onChange={(e) => {
+          const v = e.target.value;
+          setLocal(v);
+          onLiveChange?.(v);
+        }}
         style={{ width: 30, height: 26, padding: '1px', cursor: 'pointer', borderRadius: 3 }}
       />
       <span style={{ fontSize: '11px', color: '#888', flex: 1 }}>{label}</span>
-      <span style={{ fontSize: '10px', color: '#555', fontFamily: 'monospace' }}>{value}</span>
+      <span style={{ fontSize: '10px', color: '#555', fontFamily: 'monospace' }}>{local}</span>
     </div>
+  );
+}
+
+function TextRow({
+  label, value, onChange, onLiveChange,
+}: {
+  label: string; value: string;
+  onChange: (v: string) => void; onLiveChange?: (v: string) => void;
+}) {
+  const [local, setLocal] = useState(value);
+  const dirty = useRef(false);
+  useEffect(() => { setLocal(value); }, [value]);
+
+  const commit = () => {
+    if (!dirty.current) return;
+    dirty.current = false;
+    onChange(local);
+  };
+
+  return (
+    <Row label={label}>
+      <input
+        type="text"
+        value={local}
+        onChange={(e) => {
+          dirty.current = true;
+          setLocal(e.target.value);
+          onLiveChange?.(e.target.value);
+        }}
+        onBlur={commit}
+        onKeyDown={(e) => { if (e.key === 'Enter') commit(); }}
+      />
+    </Row>
   );
 }
 
@@ -216,6 +270,9 @@ export function ControlsPanel() {
     patchBlueprint({ footer: { [key]: value } as Partial<Blueprint['footer']> }, `Footer: ${key}`);
   }
 
+  function livePalette(key: keyof Blueprint['palette'], value: string) {
+    updateLiveBlueprint({ palette: { [key]: value } as Partial<Blueprint['palette']> });
+  }
   function liveFrame(key: keyof Blueprint['frame'], value: Blueprint['frame'][typeof key]) {
     updateLiveBlueprint({ frame: { [key]: value } as Partial<Blueprint['frame']> });
   }
@@ -473,26 +530,31 @@ export function ControlsPanel() {
             <ColorRow
               label="Background"
               value={bp.palette.background}
+              onLiveChange={(v) => livePalette('background', v)}
               onChange={(v) => patchPalette('background', v)}
             />
             <ColorRow
               label="Primary accent"
               value={bp.palette.primaryAccent}
+              onLiveChange={(v) => livePalette('primaryAccent', v)}
               onChange={(v) => patchPalette('primaryAccent', v)}
             />
             <ColorRow
               label="Secondary accent"
               value={bp.palette.secondaryAccent}
+              onLiveChange={(v) => livePalette('secondaryAccent', v)}
               onChange={(v) => patchPalette('secondaryAccent', v)}
             />
             <ColorRow
               label="Text"
               value={bp.palette.text}
+              onLiveChange={(v) => livePalette('text', v)}
               onChange={(v) => patchPalette('text', v)}
             />
             <ColorRow
               label="Border"
               value={bp.palette.border}
+              onLiveChange={(v) => livePalette('border', v)}
               onChange={(v) => patchPalette('border', v)}
             />
           </Section>
@@ -528,6 +590,7 @@ export function ControlsPanel() {
             <ColorRow
               label="Frame color (blank = border)"
               value={bp.frame.color ?? bp.palette.border}
+              onLiveChange={(v) => liveFrame('color', v)}
               onChange={(v) => patchFrame('color', v)}
             />
           </Section>
@@ -584,6 +647,7 @@ export function ControlsPanel() {
             <ColorRow
               label="Base color"
               value={bp.background.baseColor}
+              onLiveChange={(v) => liveBg('baseColor', v)}
               onChange={(v) => patchBg('baseColor', v)}
             />
             <Sel
@@ -622,15 +686,12 @@ export function ControlsPanel() {
             </Row>
             {bp.footer.visible && (
               <>
-                <Row label="Footer text">
-                  <input
-                    type="text"
-                    value={bp.footer.text}
-                    onChange={(e) =>
-                      patchFooter('text', e.target.value)
-                    }
-                  />
-                </Row>
+                <TextRow
+                  label="Footer text"
+                  value={bp.footer.text}
+                  onLiveChange={(v) => liveFooter('text', v)}
+                  onChange={(v) => patchFooter('text', v)}
+                />
                 <Sel
                   label="Footer font"
                   value={bp.footer.fontFamily}
