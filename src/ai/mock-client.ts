@@ -48,7 +48,7 @@ const KEYWORD_ILLUSTRATION: Array<[RegExp, string]> = [
 // "fate / mystery" illustration rather than The Fool.
 const FALLBACK_ILLUSTRATION = 'wheel-of-fortune';
 
-function pickIllustration(prompt: string): string {
+export function pickIllustration(prompt: string): string {
   for (const [re, id] of KEYWORD_ILLUSTRATION) {
     if (re.test(prompt)) return id;
   }

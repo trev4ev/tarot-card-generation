@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useStore } from '../store';
 import { aiClient } from '../ai';
+import { getRandomBlurb } from '../data/randomizeBlurbs';
 import type {
   Blueprint,
   FontEnum,
@@ -527,22 +528,42 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
             }}
           />
         </Row>
-        <button
-          onClick={() => void handleGenerate()}
-          disabled={isGenerating || !prompt.trim()}
-          style={{
-            background: isGenerating || !prompt.trim() ? '#3a3458' : '#6d5fb5',
-            color: '#fff',
-            padding: '8px 12px',
-            borderRadius: '5px',
-            fontSize: '13px',
-            fontWeight: 600,
-            cursor: isGenerating || !prompt.trim() ? 'not-allowed' : 'pointer',
-            transition: 'background 0.15s',
-          }}
-        >
-          {isGenerating ? 'Generating…' : 'Generate'}
-        </button>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <button
+            onClick={() => setPrompt(getRandomBlurb().prompt)}
+            title="Randomize prompt"
+            style={{
+              flex: '0 0 auto',
+              background: '#1e1b3a',
+              border: '1px solid #3d3770',
+              color: '#b8aedd',
+              padding: '6px 10px',
+              borderRadius: '5px',
+              fontSize: '13px',
+              cursor: 'pointer',
+            }}
+          >
+            ⚄
+          </button>
+          <button
+            onClick={() => void handleGenerate()}
+            disabled={isGenerating || !prompt.trim()}
+            style={{
+              flex: 1,
+              background: isGenerating || !prompt.trim() ? '#3a3458' : '#6d5fb5',
+              color: '#fff',
+              border: 'none',
+              padding: '6px 12px',
+              borderRadius: '5px',
+              fontSize: '13px',
+              fontWeight: 600,
+              cursor: isGenerating || !prompt.trim() ? 'not-allowed' : 'pointer',
+              transition: 'background 0.15s',
+            }}
+          >
+            {isGenerating ? 'Generating…' : 'Generate'}
+          </button>
+        </div>
         {error && (
           <p style={{ fontSize: '11px', color: '#f87171', lineHeight: 1.4 }}>{error}</p>
         )}
