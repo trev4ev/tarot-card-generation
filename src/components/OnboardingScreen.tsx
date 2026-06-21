@@ -173,23 +173,6 @@ export function OnboardingScreen({ onDismiss }: OnboardingScreenProps) {
           </p>
         )}
 
-        {/* Skip link */}
-        <div style={{ textAlign: 'center', marginTop: '20px' }}>
-          <button
-            onClick={onDismiss}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#4a4470',
-              fontSize: '12px',
-              cursor: 'pointer',
-              textDecoration: 'underline',
-              padding: 0,
-            }}
-          >
-            Skip — use the example card
-          </button>
-        </div>
       </div>
     </div>
   );
