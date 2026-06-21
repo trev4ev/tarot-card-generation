@@ -807,9 +807,22 @@ export const rendererStub: RendererAPI = {
 
     // 10 — Footer
     if (footer.visible) {
+      const footerY = CARD_H - frame.thickness - frame.innerMargin - footer.size - 3;
+      const footerPadX = 8;
+      const footerPadY = 4;
+      layer.add(new Konva.Rect({
+        x: innerLeft - footerPadX,
+        y: footerY - footerPadY,
+        width: innerWidth + footerPadX * 2,
+        height: footer.size + footerPadY * 2 + 2,
+        fill: hexToRgba(palette.background, 0.72),
+        cornerRadius: 3,
+        listening: false,
+        id: 'footer-bg',
+      }));
       const footerNode = new Konva.Text({
         x: innerLeft,
-        y: CARD_H - frame.thickness - frame.innerMargin - footer.size - 3,
+        y: footerY,
         width: innerWidth,
         text: footer.text,
         fontSize: footer.size,
