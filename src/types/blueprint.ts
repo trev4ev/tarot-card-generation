@@ -89,13 +89,6 @@ export type DiffEntry = {
   newValue: unknown;
 };
 
-export type BlueprintDiff = {
-  id: string;
-  sourceNodeId: string;
-  targetNodeId: string;
-  entries: DiffEntry[];
-  label: string;
-};
 
 export type TimelineNode = {
   id: string;

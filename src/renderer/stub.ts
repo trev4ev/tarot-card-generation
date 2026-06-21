@@ -897,16 +897,4 @@ export const rendererStub: RendererAPI = {
 
     return { type: 'background' };
   },
-
-  async renderThumbnail(blueprint: Blueprint): Promise<string> {
-    const container = document.createElement('div');
-    container.style.cssText = 'position:absolute;left:-9999px;top:-9999px;';
-    document.body.appendChild(container);
-    const stage = new Konva.Stage({ container, width: CARD_W, height: CARD_H });
-    rendererStub.render(blueprint, stage);
-    const dataURL = stage.toDataURL({ pixelRatio: 0.25 });
-    stage.destroy();
-    document.body.removeChild(container);
-    return dataURL;
-  },
 };

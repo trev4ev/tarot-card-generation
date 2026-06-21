@@ -116,7 +116,6 @@ export interface StoreState {
   updateLiveBlueprint: (patch: DeepPartial<Blueprint>) => void;
   branchFrom: (nodeId: string, sourceBranchId: string) => Branch | null;
   renameBranch: (branchId: string, label: string) => void;
-  toggleBranchCollapse: (branchId: string) => void;
   setIsGenerating: (val: boolean) => void;
   reset: () => void;
   updateSymbol: (symbolId: string, patch: Partial<SymbolDef>) => void;
@@ -272,14 +271,6 @@ export const useStore = create<StoreState>((set, get) => ({
     set((s) => ({
       branches: s.branches.map((b) =>
         b.id === branchId ? { ...b, label } : b
-      ),
-    }));
-  },
-
-  toggleBranchCollapse: (branchId) => {
-    set((s) => ({
-      branches: s.branches.map((b) =>
-        b.id === branchId ? { ...b, collapsed: !b.collapsed } : b
       ),
     }));
   },

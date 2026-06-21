@@ -4,5 +4,4 @@ import type { Blueprint, ElementRef } from '../types/blueprint';
 export interface RendererAPI {
   render(blueprint: Blueprint, stage: Konva.Stage): void;
   hitTest(x: number, y: number, blueprint: Blueprint): ElementRef | null;
-  renderThumbnail(blueprint: Blueprint): Promise<string>;
 }

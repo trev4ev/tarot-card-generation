@@ -116,31 +116,13 @@ export function getRandomBlurb(): RandomBlurb {
 }
 
 // ── Validation ────────────────────────────────────────────────────────────────
-// Verifies that the mock client's pickIllustration maps each blurb to its
-// declared illustrationId.  Call validateBlurbs() from the browser console in
-// dev mode to inspect results.
-
-export interface BlurbValidationResult {
-  illustrationId: string;
-  prompt: string;
-  actual: string;
-  pass: boolean;
-}
-
-export function validateBlurbs(): BlurbValidationResult[] {
-  return RANDOM_BLURBS.map((blurb) => {
-    const actual = pickIllustration(blurb.prompt);
-    return {
-      illustrationId: blurb.illustrationId,
-      prompt: blurb.prompt,
-      actual,
-      pass: actual === blurb.illustrationId,
-    };
-  });
-}
-
+// Runs in dev mode on startup. Verifies each blurb's prompt contains keywords
+// that make the mock client return the declared illustrationId.
 export function assertAllBlurbsValid(): void {
-  const results = validateBlurbs();
+  const results = RANDOM_BLURBS.map((blurb) => {
+    const actual = pickIllustration(blurb.prompt);
+    return { ...blurb, actual, pass: actual === blurb.illustrationId };
+  });
   const failures = results.filter((r) => !r.pass);
   if (failures.length === 0) {
     console.info(`[randomizeBlurbs] All ${results.length} blurbs validated ✓`);

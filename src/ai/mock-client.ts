@@ -7,20 +7,6 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function pickByKeyword(prompt: string): Blueprint {
-  const lower = prompt.toLowerCase();
-  if (lower.includes('fool') || lower.includes('adventure') || lower.includes('journey')) {
-    return { ...theFool, id: crypto.randomUUID() };
-  }
-  if (lower.includes('moon') || lower.includes('dream') || lower.includes('night') || lower.includes('mystery')) {
-    return { ...theMoon, id: crypto.randomUUID() };
-  }
-  if (lower.includes('wand') || lower.includes('fire') || lower.includes('passion') || lower.includes('spark')) {
-    return { ...aceOfWands, id: crypto.randomUUID() };
-  }
-  const random = fixtureCards[Math.floor(Math.random() * fixtureCards.length)];
-  return { ...random, id: crypto.randomUUID() };
-}
 
 const KEYWORD_ILLUSTRATION: Array<[RegExp, string]> = [
   [/hermit|sage|lantern|solitude|wisdom/i, 'the-hermit'],
@@ -60,7 +46,14 @@ export const mockAIClient: AIClient = {
     await delay(500);
     const illustrationId = pickIllustration(prompt);
     const illEntry = ILLUSTRATIONS.find((i) => i.id === illustrationId) ?? ILLUSTRATIONS[0];
-    const base = pickByKeyword(prompt);
+    const lower = prompt.toLowerCase();
+    const base = lower.includes('fool') || lower.includes('adventure') || lower.includes('journey')
+      ? { ...theFool, id: crypto.randomUUID() }
+      : lower.includes('moon') || lower.includes('dream') || lower.includes('night') || lower.includes('mystery')
+      ? { ...theMoon, id: crypto.randomUUID() }
+      : lower.includes('wand') || lower.includes('fire') || lower.includes('passion') || lower.includes('spark')
+      ? { ...aceOfWands, id: crypto.randomUUID() }
+      : { ...fixtureCards[Math.floor(Math.random() * fixtureCards.length)], id: crypto.randomUUID() };
     return {
       ...base,
       symbols: [],
