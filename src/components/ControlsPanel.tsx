@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { useStore } from '../store';
-import { aiClient } from '../ai';
-import { getRandomBlurb } from '../data/randomizeBlurbs';
 import type {
   Blueprint,
   FontEnum,
@@ -225,11 +223,6 @@ function TextRow({
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () => void }) {
-  const prompt = useStore((s) => s.prompt);
-  const setPrompt = useStore((s) => s.setPrompt);
-  const isGenerating = useStore((s) => s.isGenerating);
-  const setIsGenerating = useStore((s) => s.setIsGenerating);
-  const addNode = useStore((s) => s.addNode);
   const patchBlueprint = useStore((s) => s.patchBlueprint);
   const updateLiveBlueprint = useStore((s) => s.updateLiveBlueprint);
   const reset = useStore((s) => s.reset);
@@ -239,10 +232,9 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
   const addSymbol = useStore((s) => s.addSymbol);
   const removeSymbol = useStore((s) => s.removeSymbol);
   const bp = useStore((s) => s.liveBlueprint ?? s.activeBlueprint());
-  const [error, setError] = useState<string | null>(null);
 
   // Accordion: only one section open at a time.
-  const [openSection, setOpenSection] = useState<string | null>('AI Generation');
+  const [openSection, setOpenSection] = useState<string | null>(null);
 
   // Clicking an element on the canvas expands its section and closes the rest.
   useEffect(() => {
@@ -257,20 +249,6 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
     const section = sectionForType[selectedElement.type];
     if (section) setOpenSection(section);
   }, [selectedElement]);
-
-  async function handleGenerate() {
-    if (!prompt.trim() || isGenerating) return;
-    setError(null);
-    setIsGenerating(true);
-    try {
-      const generated = await aiClient.generateCard(prompt);
-      addNode(generated, `"${prompt.slice(0, 28)}"`);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Generation failed');
-    } finally {
-      setIsGenerating(false);
-    }
-  }
 
   function fmtVal(v: unknown): string {
     if (typeof v === 'number') return String(Math.round(v * 100) / 100);
@@ -513,61 +491,6 @@ export function ControlsPanel({ open, onToggle }: { open: boolean; onToggle: () 
           )}
         </div>
       )}
-
-      {/* AI Generation */}
-      <Section id="AI Generation" title="AI Generation" openSection={openSection} onToggle={setOpenSection}>
-        <Row label="Prompt">
-          <textarea
-            rows={3}
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder="e.g. The Sun — radiant joy, warmth, and new beginnings in gold and amber"
-            style={{ resize: 'vertical', width: '100%' }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void handleGenerate();
-            }}
-          />
-        </Row>
-        <div style={{ display: 'flex', gap: '6px' }}>
-          <button
-            onClick={() => setPrompt(getRandomBlurb().prompt)}
-            title="Randomize prompt"
-            style={{
-              flex: '0 0 auto',
-              background: '#1e1b3a',
-              border: '1px solid #3d3770',
-              color: '#b8aedd',
-              padding: '6px 10px',
-              borderRadius: '5px',
-              fontSize: '13px',
-              cursor: 'pointer',
-            }}
-          >
-            ⚄
-          </button>
-          <button
-            onClick={() => void handleGenerate()}
-            disabled={isGenerating || !prompt.trim()}
-            style={{
-              flex: 1,
-              background: isGenerating || !prompt.trim() ? '#3a3458' : '#6d5fb5',
-              color: '#fff',
-              border: 'none',
-              padding: '6px 12px',
-              borderRadius: '5px',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: isGenerating || !prompt.trim() ? 'not-allowed' : 'pointer',
-              transition: 'background 0.15s',
-            }}
-          >
-            {isGenerating ? 'Generating…' : 'Generate'}
-          </button>
-        </div>
-        {error && (
-          <p style={{ fontSize: '11px', color: '#f87171', lineHeight: 1.4 }}>{error}</p>
-        )}
-      </Section>
 
       {bp && (
         <>

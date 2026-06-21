@@ -5,110 +5,29 @@ export interface RandomBlurb {
   prompt: string;
 }
 
-// Each prompt contains keywords that trigger the correct illustration via the
-// mock client's pickIllustration regex table.  See mock-client.ts for the full
-// keyword → illustration mapping.
+// Each prompt contains keywords that map to the correct illustration via the
+// mock client's pickIllustration regex table.
 export const RANDOM_BLURBS: RandomBlurb[] = [
-  {
-    illustrationId: 'the-fool',
-    prompt:
-      "A carefree young fool embarks on a new adventure, stepping off the cliff's edge into the unknown with innocent wonder.",
-  },
-  {
-    illustrationId: 'the-magician',
-    prompt:
-      'A magician stands at his altar, manifesting his intentions through the power of all four elemental tools.',
-  },
-  {
-    illustrationId: 'the-high-priestess',
-    prompt:
-      'A veiled oracle holds a sacred scroll, her face revealing nothing — only deep intuition and silent mystery.',
-  },
-  {
-    illustrationId: 'the-empress',
-    prompt:
-      'A crowned empress presides over fertile lands of abundance, where nature provides an endless harvest of grain and bloom.',
-  },
-  {
-    illustrationId: 'the-emperor',
-    prompt:
-      'An emperor of absolute authority maintains order from his stone throne, his firm leadership shaping the pillars of civilization.',
-  },
-  {
-    illustrationId: 'the-hierophant',
-    prompt:
-      'A hierophant in sacred robes preserves ancient tradition, teaching his acolytes through solemn ritual and holy ceremony.',
-  },
-  {
-    illustrationId: 'the-lovers',
-    prompt:
-      'Two lovers stand in blissful union, their hearts entwined beneath divine light as they face a momentous choice together.',
-  },
-  {
-    illustrationId: 'the-chariot',
-    prompt:
-      'A determined warrior rides his chariot to conquest and victory, commanding opposing forces through focused resolve.',
-  },
-  {
-    illustrationId: 'strength',
-    prompt:
-      'A gentle woman demonstrates inner strength and courage, calmly taming a fierce lion through compassion and patient grace.',
-  },
-  {
-    illustrationId: 'the-hermit',
-    prompt:
-      'An aged hermit sage stands alone on a mountain peak in solitude, holding a glowing lantern to light the path of wisdom.',
-  },
-  {
-    illustrationId: 'wheel-of-fortune',
-    prompt:
-      "A great cosmic wheel of fate turns through endless cycles of karma and fortune, with destiny determining each soul's path.",
-  },
-  {
-    illustrationId: 'justice',
-    prompt:
-      'A crowned arbiter of justice wields truth and the scales of balance, ensuring law applies equally to all before the throne.',
-  },
-  {
-    illustrationId: 'the-hanged-man',
-    prompt:
-      'A figure hangs upside down in serene surrender, gaining a profound new perspective through the sacrifice of ego and certainty.',
-  },
-  {
-    illustrationId: 'death',
-    prompt:
-      'A skeletal horseman heralds transformation and endings, the great transition clearing the way for rebirth and new cycles.',
-  },
-  {
-    illustrationId: 'temperance',
-    prompt:
-      'A graceful angel pours water in patient moderation, flowing between two vessels with healing purpose on the celestial path.',
-  },
-  {
-    illustrationId: 'the-devil',
-    prompt:
-      'A goat-headed devil rules through bondage and temptation, his dark shadow binding souls in chains of materialism.',
-  },
-  {
-    illustrationId: 'the-tower',
-    prompt:
-      'A bolt of lightning strikes a stone tower, unleashing chaos and upheaval that topples false certainty in an instant.',
-  },
-  {
-    illustrationId: 'the-star',
-    prompt:
-      'A kneeling figure pours water beneath eight guiding stars, offering hope and renewal in peaceful serenity after the storm.',
-  },
-  {
-    illustrationId: 'the-moon',
-    prompt:
-      'A pale moon casts its glow over a dreamlike night where wolves howl and fears blur the line between vision and reality.',
-  },
-  {
-    illustrationId: 'the-sun',
-    prompt:
-      "A radiant child rides triumphantly beneath the blazing sun, spreading joy and warmth through life's golden light.",
-  },
+  { illustrationId: 'the-fool',          prompt: 'A fool taking a leap into adventure' },
+  { illustrationId: 'the-magician',      prompt: 'A magician channeling power to manifest' },
+  { illustrationId: 'the-high-priestess', prompt: 'A veiled woman of mystery and intuition' },
+  { illustrationId: 'the-empress',       prompt: 'A fertile empress among nature\'s abundance' },
+  { illustrationId: 'the-emperor',       prompt: 'An emperor commanding authority and order' },
+  { illustrationId: 'the-hierophant',    prompt: 'A hierophant upholding sacred tradition' },
+  { illustrationId: 'the-lovers',        prompt: 'Two people in love facing a choice' },
+  { illustrationId: 'the-chariot',       prompt: 'A warrior riding a chariot to victory' },
+  { illustrationId: 'strength',          prompt: 'Inner strength, a woman taming a lion' },
+  { illustrationId: 'the-hermit',        prompt: 'A hermit alone with lantern and wisdom' },
+  { illustrationId: 'wheel-of-fortune',  prompt: 'The wheel of fortune spinning through fate' },
+  { illustrationId: 'justice',           prompt: 'Justice, truth, and balance under law' },
+  { illustrationId: 'the-hanged-man',    prompt: 'A figure hanging in surrender and new perspective' },
+  { illustrationId: 'death',             prompt: 'Death as transformation and rebirth' },
+  { illustrationId: 'temperance',        prompt: 'An angel flowing with patient moderation' },
+  { illustrationId: 'the-devil',         prompt: 'The devil, shadow, and chains of bondage' },
+  { illustrationId: 'the-tower',         prompt: 'Lightning strikes the tower in chaos' },
+  { illustrationId: 'the-star',          prompt: 'Stars of hope and renewal after darkness' },
+  { illustrationId: 'the-moon',          prompt: 'A wolf howling at the moon in the night' },
+  { illustrationId: 'the-sun',           prompt: 'A child riding in radiant sunlight and joy' },
 ];
 
 export function getRandomBlurb(): RandomBlurb {
